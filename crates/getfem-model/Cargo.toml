@@ -1,0 +1,18 @@
+[package]
+name = "getfem-model"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+getfem-geom.workspace = true
+getfem-fem.workspace = true
+getfem-gwfl.workspace = true
+getfem-linalg.workspace = true
+getfem-mumps.workspace = true
+getfem-mpi.workspace = true
+
+[lints]
+workspace = true

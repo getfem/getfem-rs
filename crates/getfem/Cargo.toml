@@ -1,0 +1,44 @@
+[package]
+name = "getfem"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+getfem-geom.workspace = true
+getfem-fem.workspace = true
+getfem-gwfl.workspace = true
+getfem-linalg.workspace = true
+getfem-model.workspace = true
+getfem-mumps.workspace = true
+getfem-arpack.workspace = true
+getfem-io.workspace = true
+getfem-mpi.workspace = true
+
+[features]
+# MPI runs (docs/design/m15-mpi.md); an MPI's mpicc at build time
+mpi = ["getfem-mpi/mpi", "getfem-mumps/mpi"]
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "assembly"
+harness = false
+
+[[bench]]
+name = "cut3d"
+harness = false
+
+[[bench]]
+name = "interp3d"
+harness = false
+
+[[bench]]
+name = "model"
+harness = false
+
+[[bench]]
+name = "opt_assembly"
+harness = false

@@ -1,0 +1,14 @@
+[package]
+name = "getfem-geom"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+getfem-linalg.workspace = true
+getfem-mpi.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

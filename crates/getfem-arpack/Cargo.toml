@@ -1,0 +1,14 @@
+[package]
+name = "getfem-arpack"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+getfem-linalg.workspace = true
+getfem-mpi.workspace = true
+getfem-mumps.workspace = true
+
+[lints]
+workspace = true

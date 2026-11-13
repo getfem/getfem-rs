@@ -1,0 +1,15 @@
+[package]
+name = "getfem-io"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+getfem-geom.workspace = true
+getfem-linalg.workspace = true
+getfem-fem.workspace = true
+
+[lints]
+workspace = true

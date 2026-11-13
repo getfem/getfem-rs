@@ -1,0 +1,21 @@
+[package]
+name = "getfem-mpi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+build = "build.rs"
+
+[features]
+# MPI runs (an MPI's mpicc at build time); without it: one rank, no-ops
+mpi = []
+
+[dependencies]
+getfem-linalg.workspace = true
+
+[build-dependencies]
+cc.workspace = true
+
+[lints]
+workspace = true

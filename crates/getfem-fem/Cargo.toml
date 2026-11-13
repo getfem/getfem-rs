@@ -1,0 +1,18 @@
+[package]
+name = "getfem-fem"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+getfem-geom.workspace = true
+getfem-linalg.workspace = true
+getfem-mpi.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+getfem-io = { path = "../getfem-io" }

@@ -1,0 +1,24 @@
+[package]
+name = "getfem-python"
+description = "GetFEM-rs from Python (module getfem_rs)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+name = "getfem_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+getfem = { path = "../getfem" }
+numpy = "0.30"
+pyo3 = { version = "0.30", features = ["abi3-py312"] }
+
+[features]
+# MPI runs (gf.mpi_init); an MPI's mpicc at build time
+mpi = ["getfem/mpi"]
+
+[lints]
+workspace = true
