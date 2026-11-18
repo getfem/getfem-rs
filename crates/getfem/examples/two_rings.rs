@@ -13,7 +13,7 @@
 //! handle 2 of ring 1 and the handle 1 of ring 2 are released (8 steps, the
 //! supports decreasing to 0), then ring 2 is pulled by its handle 2 alone
 //! (16 steps; the script's later steps make Newton cycle between contact
-//! states, in GetFEM too).
+//! states).
 //!
 //! Writes both rings per step (u and the von Mises stress of tau) as .vtu
 //! with .pvd collections (target/showcase/two_rings/) and prints the Newton

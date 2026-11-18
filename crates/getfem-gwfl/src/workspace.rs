@@ -54,8 +54,8 @@ struct VarDescription {
   stamp: u64,
   is_variable: bool,
   is_disabled: bool,
-  /// an im variable condensed out of the linear solve (GetFEM
-  /// add_internal_im_variable); numbered after all others
+  /// an im variable condensed out of the linear solve; numbered after all
+  /// others
   is_internal: bool,
   /// the data version of its last value change (GetFEM v_num_data)
   version: u64,
@@ -83,9 +83,9 @@ pub struct Workspace {
   assembled: Assembled,
 }
 
-/// GetFEM's assembled potential, vector and matrix (ga_workspace V, K):
-/// cleared and refilled by each assembly (their storage reused) unless
-/// given; a copy starts empty
+/// The assembled potential, vector and matrix (GetFEM's V, K): cleared and
+/// refilled by each assembly (their storage reused) unless given; a copy
+/// starts empty
 #[derive(Debug, Default)]
 struct Assembled {
   potential: f64,
@@ -164,8 +164,8 @@ impl Workspace {
     self.nb_dof
   }
 
-  /// Number of unknowns of the enabled internal variables (GetFEM
-  /// nb_internal_dof): the last ones of the numbering.
+  /// Number of unknowns of the enabled internal variables: the last ones
+  /// of the numbering.
   #[doc(hidden)]
   pub fn nb_internal_dof(&self) -> usize {
     self
@@ -176,15 +176,14 @@ impl Workspace {
       .sum()
   }
 
-  /// Number of unknowns of the other variables (GetFEM nb_primary_dof):
-  /// the size of the condensed system.
+  /// Number of unknowns of the other variables: the size of the condensed
+  /// system.
   #[doc(hidden)]
   pub fn nb_primary_dof(&self) -> usize {
     self.nb_dof - self.nb_internal_dof()
   }
 
-  /// An enabled internal variable (GetFEM is_internal_variable); a
-  /// disabled one is data, not internal.
+  /// An enabled internal variable; a disabled one is data, not internal.
   pub fn is_internal_variable(&self, name: &str) -> bool {
     self
       .variables
@@ -392,8 +391,8 @@ impl Workspace {
 
   /// A disabled variable keeps its value
   /// but leaves the global system; nothing is derived w.r.t. it and terms
-  /// with its test functions are dropped (GetFEM disable_variable). The
-  /// enabled variables are renumbered in insertion order.
+  /// with its test functions are dropped. The enabled variables are
+  /// renumbered in insertion order.
   pub fn disable_variable(&mut self, name: &str) -> Result<()> {
     self.structure += 1;
     self.set_disabled(name, true)
@@ -480,11 +479,10 @@ impl Workspace {
     self.add(name, false, Space::Fem(mf.clone()), &q, vec![0.0; n])
   }
 
-  /// A variable on the DOFs of mf on a region (GetFEM
-  /// add_filtered_fem_variable), for compatibility: the same as
-  /// add_fem_variable(name, &MeshFem::partial_on_region(mf, region)?), the
-  /// canonical form. mf is not changed; the new space is
-  /// mesh_fem_of_variable(name).
+  /// A variable on the DOFs of mf on a region, for compatibility with
+  /// GetFEM; the canonical form is
+  /// add_fem_variable(name, &MeshFem::partial_on_region(mf, region)?). mf is
+  /// not changed; the new space is mesh_fem_of_variable(name).
   pub fn add_filtered_fem_variable(
     &mut self,
     name: &str,
@@ -497,8 +495,7 @@ impl Workspace {
   }
 
   /// An interpolate transformation whose target point is the value of
-  /// expr at the source point, located in the target mesh (GetFEM
-  /// add_interpolate_transformation_from_expression). expr may read
+  /// expr at the source point, located in the target mesh. expr may read
   /// variables: the derivatives through the transformation follow.
   pub fn add_interpolate_transformation_from_expression(
     &mut self,
@@ -554,9 +551,9 @@ impl Workspace {
     Ok(())
   }
 
-  /// A raytracing transformation (GetFEM add_raytracing_transformation):
-  /// from a point of a slave boundary along its deformed normal to the
-  /// nearest master boundary or rigid obstacle within release_distance.
+  /// A raytracing transformation: from a point of a slave boundary along
+  /// its deformed normal to the nearest master boundary or rigid obstacle
+  /// within release_distance.
   /// Status 1: a master face, 2: a rigid obstacle (Interpolate(X, name)
   /// only), 0: none.
   pub fn add_raytracing_transformation(&mut self, name: &str, release_distance: f64) -> Result<()> {
@@ -564,8 +561,8 @@ impl Workspace {
     self.add_contact(name, ContactKind::Raytracing, release_distance)
   }
 
-  /// A projection transformation (GetFEM add_projection_transformation):
-  /// as raytracing, the nearest point of the master boundaries.
+  /// A projection transformation: as raytracing, the nearest point of the
+  /// master boundaries.
   pub fn add_projection_transformation(&mut self, name: &str, release_distance: f64) -> Result<()> {
     self.structure += 1;
     self.add_contact(name, ContactKind::Projection, release_distance)
@@ -738,8 +735,7 @@ impl Workspace {
   }
 
   /// An elementary transformation, used as Elementary_transformation(u,
-  /// name) or Elementary_transformation(u, name, v) (GetFEM
-  /// add_elementary_transformation).
+  /// name) or Elementary_transformation(u, name, v).
   pub fn add_elementary_transformation(
     &mut self,
     name: &str,
@@ -760,50 +756,49 @@ impl Workspace {
     Ok(())
   }
 
-  /// The L2 projection onto the rotated RT0 element (2D; MITC plates),
-  /// GetFEM add_2D_rotated_RT0_projection.
+  /// The L2 projection onto the rotated RT0 element (2D; MITC plates).
   #[allow(non_snake_case)]
   pub fn add_2D_rotated_RT0_projection(&mut self, name: &str) -> Result<()> {
     self.structure += 1;
     self.add_elementary_transformation(name, Rotated2DRt0Projection)
   }
 
-  /// The HHO reconstructed gradient (target: a space of dimension qdim*N) (GetFEM add_HHO_reconstructed_gradient).
+  /// The HHO reconstructed gradient (target: a space of dimension qdim*N).
   #[allow(non_snake_case)]
   pub fn add_HHO_reconstructed_gradient(&mut self, name: &str) -> Result<()> {
     self.structure += 1;
     self.add_elementary_transformation(name, crate::hho::HhoReconstructedGradient { sym: false })
   }
 
-  /// The HHO reconstructed symmetrized gradient (GetFEM add_HHO_reconstructed_symmetrized_gradient).
+  /// The HHO reconstructed symmetrized gradient.
   #[allow(non_snake_case)]
   pub fn add_HHO_reconstructed_symmetrized_gradient(&mut self, name: &str) -> Result<()> {
     self.structure += 1;
     self.add_elementary_transformation(name, crate::hho::HhoReconstructedGradient { sym: true })
   }
 
-  /// The HHO reconstructed value (target: typically degree k + 1) (GetFEM add_HHO_reconstructed_value).
+  /// The HHO reconstructed value (target: typically degree k + 1).
   #[allow(non_snake_case)]
   pub fn add_HHO_reconstructed_value(&mut self, name: &str) -> Result<()> {
     self.structure += 1;
     self.add_elementary_transformation(name, crate::hho::HhoReconstructedValue { sym: false })
   }
 
-  /// The HHO reconstructed value, symmetrized gradient (GetFEM add_HHO_reconstructed_symmetrized_value).
+  /// The HHO reconstructed value, symmetrized gradient.
   #[allow(non_snake_case)]
   pub fn add_HHO_reconstructed_symmetrized_value(&mut self, name: &str) -> Result<()> {
     self.structure += 1;
     self.add_elementary_transformation(name, crate::hho::HhoReconstructedValue { sym: true })
   }
 
-  /// The HHO stabilization operator (GetFEM add_HHO_stabilization).
+  /// The HHO stabilization operator.
   #[allow(non_snake_case)]
   pub fn add_HHO_stabilization(&mut self, name: &str) -> Result<()> {
     self.structure += 1;
     self.add_elementary_transformation(name, crate::hho::HhoStabilization { sym: false })
   }
 
-  /// The HHO stabilization operator, symmetrized (GetFEM add_HHO_symmetrized_stabilization).
+  /// The HHO stabilization operator, symmetrized.
   #[allow(non_snake_case)]
   pub fn add_HHO_symmetrized_stabilization(&mut self, name: &str) -> Result<()> {
     self.structure += 1;
@@ -818,7 +813,7 @@ impl Workspace {
     self.add_elementary_transformation(name, crate::elementary::ProjectedGradient)
   }
 
-  /// The L2 projection onto piecewise constants, GetFEM add_P0_projection.
+  /// The L2 projection onto piecewise constants.
   #[allow(non_snake_case)]
   pub fn add_P0_projection(&mut self, name: &str) -> Result<()> {
     self.structure += 1;
@@ -860,9 +855,8 @@ impl Workspace {
     self.add_fixed_size_data(name, &[1], &[v])
   }
 
-  /// A variable at the points of imd (GetFEM add_im_variable): one tensor
-  /// of imd's shape per point, zero initially; its test functions are the
-  /// identity at each point.
+  /// A variable at the points of imd: one tensor of imd's shape per point,
+  /// zero initially; its test functions are the identity at each point.
   pub fn add_im_variable(&mut self, name: &str, imd: &ImData) -> Result<()> {
     self.structure += 1;
     let n = imd.nb_values()?;
@@ -875,8 +869,8 @@ impl Workspace {
     )
   }
 
-  /// An im variable statically condensed out before the linear solve
-  /// (GetFEM add_internal_im_variable), numbered after all others.
+  /// An im variable statically condensed out before the linear solve,
+  /// numbered after all others.
   pub fn add_internal_im_variable(&mut self, name: &str, imd: &ImData) -> Result<()> {
     self.add_im_variable(name, imd)?;
     self.variables.get_mut(name).unwrap().is_internal = true;
@@ -902,8 +896,8 @@ impl Workspace {
     self.defs.macros.add(name, expr)
   }
 
-  /// Finite element space of a variable or data (GetFEM
-  /// mesh_fem_of_variable, associated_mf).
+  /// Finite element space of a variable or data (GetFEM: also
+  /// associated_mf).
   pub fn mesh_fem_of_variable(&self, name: &str) -> Option<MeshFem> {
     match &self.variables.get(name)?.space {
       Space::Fem(mf) => Some(mf.clone()),
@@ -1044,11 +1038,11 @@ impl Workspace {
     Ok(t)
   }
 
-  /// GetFEM's second semantic analysis at compilation (eval_fixed_size):
-  /// the values of the fixed-size variables and data replace them, and
-  /// the constant subexpressions are folded (e.g. lambda*Id(meshdim): no
-  /// instruction at the points), the trees folded to zero dropped; then
-  /// the trees of the same test functions joined (GetFEM add_tree).
+  /// The second semantic analysis, at compilation: the values of the
+  /// fixed-size variables and data replace them, and the constant
+  /// subexpressions are folded (e.g. lambda*Id(meshdim): no instruction at
+  /// the points), the trees folded to zero dropped; then the trees of the
+  /// same test functions joined (GetFEM add_tree).
   fn eval_fixed_size(
     &self,
     trees: Arc<Vec<crate::semantic::Tree>>,
@@ -1213,9 +1207,8 @@ impl Workspace {
     Ok(trees)
   }
 
-  /// GetFEM ga_workspace::add_expression: expr on mim and region, assembled
-  /// with the other expressions added by `assembly`; its order (number of
-  /// test functions) returned.
+  /// Add expr on mim and region, assembled with the other expressions by
+  /// `assembly`; its order (number of test functions) returned.
   pub fn add_expression(
     &mut self,
     expr: &str,
@@ -1236,17 +1229,16 @@ impl Workspace {
     Ok(order)
   }
 
-  /// GetFEM ga_workspace::clear_expressions
+  /// Remove all the expressions added.
   pub fn clear_expressions(&mut self) {
     self.exprs.clear();
   }
 
-  /// GetFEM ga_workspace::assembly: the expressions added, at order 0 (the
-  /// assembled potential), 1 (vector) or 2 (matrix). The assembled vector
-  /// and matrix are cleared first, unless given by set_assembled_vector or
-  /// set_assembled_matrix (then added to). The expressions on the same mim
-  /// and region form one instruction set, those of the same test functions one
-  /// tree.
+  /// Assemble the expressions added, at order 0 (the assembled potential),
+  /// 1 (vector) or 2 (matrix). The assembled vector and matrix are cleared
+  /// first, unless given by set_assembled_vector or set_assembled_matrix
+  /// (then added to). The expressions on the same mim and region form one
+  /// instruction set, those of the same test functions one tree.
   ///
   /// condensation (order 2): the internal variables condensed out at each
   /// point; on entry the assembled vector holds the residual of all
@@ -1378,35 +1370,34 @@ impl Workspace {
     Ok(())
   }
 
-  /// GetFEM ga_workspace::assembled_potential
+  /// The assembled potential.
   pub fn assembled_potential(&self) -> f64 {
     self.assembled.potential
   }
 
-  /// GetFEM ga_workspace::assembled_vector: over all variables
-  /// (interval_of_variable for the part of one)
+  /// The assembled vector, over all variables (interval_of_variable for
+  /// the part of one).
   pub fn assembled_vector(&self) -> &[f64] {
     &self.assembled.vector
   }
 
-  /// GetFEM ga_workspace::assembled_matrix
+  /// The assembled matrix.
   pub fn assembled_matrix(&self) -> &ColMatrix<f64> {
     &self.assembled.matrix
   }
 
-  /// GetFEM ga_workspace::internal_coupling_matrix: K'_QJ of the last
-  /// assembly with condensation
+  /// K'_QJ of the last assembly with condensation.
   pub fn internal_coupling_matrix(&self) -> &ColMatrix<f64> {
     &self.assembled.coupling
   }
 
-  /// GetFEM ga_workspace::set_assembled_vector: assembly adds to v
+  /// The assembled vector given: assembly adds to v.
   pub fn set_assembled_vector(&mut self, v: Vec<f64>) {
     self.assembled.vector = v;
     self.assembled.given.0 = true;
   }
 
-  /// GetFEM ga_workspace::set_assembled_matrix: assembly adds to k
+  /// The assembled matrix given: assembly adds to k.
   pub fn set_assembled_matrix(&mut self, k: ColMatrix<f64>) {
     self.assembled.matrix = k;
     self.assembled.given.1 = true;
@@ -1460,16 +1451,15 @@ impl Workspace {
   }
 
   /// Values of expr at the nodes of the Lagrange space mf, averaged over
-  /// the elements sharing a node (GetFEM ga_interpolation_Lagrange_fem):
-  /// qdim(mf) * m values per basic DOF when expr has qdim(mf) * m
-  /// components.
+  /// the elements sharing a node: qdim(mf) * m values per basic DOF when
+  /// expr has qdim(mf) * m components.
   fn interpolation_lagrange_fem(
     &self,
     expr: &str,
     mf: &MeshFem,
     region: impl Into<RegionArg>,
   ) -> Result<Vec<f64>> {
-    // as GetFEM (ga_interpolation_Lagrange_fem)
+    // a reduced space refused, as GetFEM
     if mf.is_reduced() {
       return Err(Error::InvalidArgument(
         "interpolation on a reduced (or partial) space: interpolate on the space without its reduction, then reduce".into(),
@@ -1587,9 +1577,9 @@ impl Workspace {
     Ok(sum)
   }
 
-  /// Values of expr at points of the mesh (GetFEM ga_interpolation_mti),
-  /// each point evaluated on the first element containing it; a point
-  /// outside the mesh (or the region) is an error.
+  /// Values of expr at points of the mesh, each point evaluated on the
+  /// first element containing it; a point outside the mesh (or the region)
+  /// is an error.
   fn interpolation_mti(
     &self,
     expr: &str,
@@ -1649,8 +1639,7 @@ impl Workspace {
     Ok(out)
   }
 
-  /// Values of expr at the points of an ImData, as its tensors (GetFEM
-  /// ga_interpolation_im_data).
+  /// Values of expr at the points of an ImData, as its tensors.
   fn interpolation_im_data(
     &self,
     expr: &str,
@@ -1683,8 +1672,7 @@ impl Workspace {
     Ok(out)
   }
 
-  /// Element-wise L2 projection of expr on the discontinuous space mf
-  /// (GetFEM ga_local_projection).
+  /// Element-wise L2 projection of expr on the discontinuous space mf.
   pub fn local_projection(
     &self,
     expr: &str,
@@ -1959,8 +1947,8 @@ impl Workspace {
   }
 }
 
-/// The temporary intervals of an assembly (GetFEM tmp_var_intervals):
-/// (start, start of the interval of the variable, its reduction)
+/// The temporary intervals of an assembly: (start, start of the interval
+/// of the variable, its reduction)
 type TmpVarIntervals<'a> = [(usize, usize, &'a Reduction)];
 
 /// The unreduced terms of out folded into inner (GetFEM Vu, Kuu, Kur, Kru):
@@ -1969,8 +1957,7 @@ type TmpVarIntervals<'a> = [(usize, usize, &'a Reduction)];
 fn fold_unreduced(ext: &TmpVarIntervals, out: &UnreducedOut, inner: &mut dyn AssemblyTarget) {
   let n = out.n;
   if out.vector {
-    // V += E^T Vu (gmm::mult_add(transposed(E), Vu, V)), by the columns
-    // of E
+    // V += E^T Vu, by the columns of E
     for &(t, off, r) in ext {
       let vu = &out.vu[t - n..t - n + r.e.nrows];
       for c in 0..r.et.nrows {
@@ -2220,7 +2207,7 @@ impl GaEnv<'_> {
 
 impl crate::ga::Ext for GaEnv<'_> {
   fn xfem_base(&mut self, v: usize, der: u8, side: i8, out: &mut [f64]) -> Result<()> {
-    // elements not defined on the real element: no side (GetFEM)
+    // elements not defined on the real element: no side
     if self.vars[v].real.is_none() {
       match der {
         0 => self.val_base(v, out),
@@ -2422,7 +2409,7 @@ impl crate::ga::Ext for GaEnv<'_> {
     let (mut href, mut gx) = (vec![0.0; p * p], vec![0.0; n]);
     for i in 0..nb {
       for a in 0..td {
-        // curvature correction with the reference component (GetFEM)
+        // curvature correction with the reference component
         let ac = a.min(t - 1);
         if !self.htau.is_empty() {
           for (l, g) in gx[..n].iter_mut().enumerate() {
@@ -2526,23 +2513,25 @@ impl crate::ga::Ext for GaEnv<'_> {
         }
       }
       InitializedTransformation::Contact(c) => {
-        let f = self.face.ok_or_else(|| {
-          Error::InvalidArgument(format!(
-            "{} can only be applied to faces (term {})",
-            t.name, self.expr
-          ))
-        })?;
+        let f = self.face;
         let ai = self.pim.as_ref().unwrap().approx()?;
-        let (ws, var_mfs) = (self.ws, &self.asm_args.var_mfs);
+        let (ws, var_mfs, ext) = (self.ws, &self.asm_args.var_mfs, &self.asm_args.ext);
         let disp =
-          |v: &str, mm: &getfem_geom::mesh::MeshData, cv: usize| ws.disp(var_mfs, v, mm, cv);
+          |v: &str, mm: &getfem_geom::mesh::MeshData, cv: usize| ws.disp(var_mfs, ext, v, mm, cv);
         let h = c.transform(&disp, m, self.cv, f, ai.point(self.ip), ders)?;
         if let Some((cv, f2, xref)) = &h.target {
           let ib = c.bounds.iter().position(|b| b.disp == h.disp_y).unwrap();
           let mesh = c.bounds[ib].mesh.clone();
           let gt = mesh.trans_of_convex(*cv);
           let geo = gt.at(&mesh.points_of_convex(*cv), xref)?;
-          let un = unit_normal(&geo, &gt.normals()[*f2]);
+          let un = match f2 {
+            Some(f2) => unit_normal(&geo, &gt.normals()[*f2]),
+            None => {
+              let mut v = vec![0.0; mesh.dim()];
+              unit_normal_of_k(geo.k.data(), v.len(), &mut v);
+              v
+            }
+          };
           t.tgt = Some(TPoint {
             mesh,
             cv: *cv,
@@ -3365,6 +3354,8 @@ fn elem_loop(
         jac = env.geo.j.abs();
         if let Some(f) = face {
           jac *= env.geo.face_normal(gt, f, &mut es.normal);
+        } else if gis.needs_normal && ls_normal.is_empty() {
+          element_unit_normal(&env.geo, cv, &mut es.normal)?;
         }
       }
       if !ls_normal.is_empty() {
@@ -3401,6 +3392,9 @@ fn elem_loop(
       }
       if curved {
         trans_hessian(&env.geo, gt, ai.point(ip), &mut env.htau);
+      }
+      if gis.needs_curvature {
+        element_curvature(&env.geo, gt, ai.point(ip), &mut es.curvature)?;
       }
       if ipt == 0 {
         gis.run(&gis.elt_instructions, es, env)?;
@@ -3526,6 +3520,85 @@ fn trans_hessian(geo: &crate::ga::GeoCtx, gt: &PGeoTrans, xref: &[f64], htau: &m
   }));
 }
 
+/// element_curvature = grad_s n = -B b B^T (n x n) on a curve in 2D or a
+/// surface in 3D: n the unit normal oriented by the parametrization (K_1 x
+/// K_2 in 3D, (K_21, -K_11) in 2D), b_ac = n . d2x/dxi_a dxi_c; zero for a
+/// linear transformation
+fn element_curvature(
+  geo: &crate::ga::GeoCtx,
+  gt: &PGeoTrans,
+  xref: &[f64],
+  out: &mut Vec<f64>,
+) -> Result<()> {
+  let (n, p) = (geo.n, geo.p);
+  if p + 1 != n || !(n == 2 || n == 3) {
+    return Err(Error::InvalidArgument(
+      "element_curvature is only defined for curves in 2D and surfaces in 3D".into(),
+    ));
+  }
+  out.clear();
+  out.resize(n * n, 0.0);
+  if gt.is_linear() {
+    return Ok(());
+  }
+  let b = &geo.b;
+  let mut nrm = [0.0; 3];
+  unit_normal_of_k(&geo.k, n, &mut nrm[..n]);
+  // b_ac = n . G hess(phi)_ac
+  let gh = gt.hess(xref);
+  let g = &geo.g;
+  let mut bac = [0.0; 4];
+  for (ac, bv) in bac[..p * p].iter_mut().enumerate() {
+    *bv = (0..n)
+      .map(|l| nrm[l] * (0..g.ncols()).map(|a| g[(l, a)] * gh[(a, ac)]).sum::<f64>())
+      .sum();
+  }
+  for j in 0..n {
+    for i in 0..n {
+      let mut s = 0.0;
+      for a in 0..p {
+        for c in 0..p {
+          s += b[i + n * a] * bac[a + p * c] * b[j + n * c];
+        }
+      }
+      out[i + n * j] = -s;
+    }
+  }
+  Ok(())
+}
+
+/// unit normal of a curve in 2D or a surface in 3D, oriented by the
+/// parametrization: (K_21, -K_11) in 2D, K_1 x K_2 in 3D (K n x p
+/// column-major)
+pub(crate) fn unit_normal_of_k(k: &[f64], n: usize, out: &mut [f64]) {
+  if n == 2 {
+    out.copy_from_slice(&[k[1], -k[0]]);
+  } else {
+    out.copy_from_slice(&[
+      k[1] * k[5] - k[2] * k[4],
+      k[2] * k[3] - k[0] * k[5],
+      k[0] * k[4] - k[1] * k[3],
+    ]);
+  }
+  let nn = out.iter().map(|v| v * v).sum::<f64>().sqrt();
+  out.iter_mut().for_each(|v| *v /= nn);
+}
+
+/// Normal inside element cv (not on a face): the element's own unit normal
+/// on a curve in 2D or a surface in 3D (as element_curvature); undefined,
+/// an error, on other element dimensions (GetFEM: an empty vector)
+#[inline(never)]
+fn element_unit_normal(geo: &crate::ga::GeoCtx, cv: usize, out: &mut [f64]) -> Result<()> {
+  if geo.p + 1 != geo.n || !(geo.n == 2 || geo.n == 3) {
+    return Err(Error::InvalidArgument(format!(
+      "Normal inside element {cv} (of dimension {} in {}D): defined on faces, and inside curves in 2D and surfaces in 3D only",
+      geo.p, geo.n
+    )));
+  }
+  unit_normal_of_k(&geo.k, geo.n, out);
+  Ok(())
+}
+
 /// Derivatives of an analysed tree w.r.t. each of its variables, analysed.
 /// unit outward normal B n_ref / |B n_ref| at a point of a face
 fn unit_normal(geo: &PointGeom, nr: &[f64]) -> Vec<f64> {
@@ -3593,13 +3666,18 @@ struct AssemblyArgs {
   var_mfs: BTreeMap<String, MfDofs>,
   var_imds: BTreeMap<String, Arc<ImdPoints>>,
   transformations: BTreeMap<String, InitializedTransformation>,
+  /// the values on the basic DOFs of the contact displacements on spaces
+  /// with reduction matrices
+  ext: BTreeMap<String, Vec<f64>>,
 }
 
 impl Workspace {
-  /// The displacement var on element cv of m (contact transformations).
+  /// The displacement var on element cv of m (contact transformations;
+  /// ext: its values on the basic DOFs of a space with reduction matrices).
   fn disp(
     &self,
     var_mfs: &BTreeMap<String, MfDofs>,
+    ext: &BTreeMap<String, Vec<f64>>,
     var: &str,
     m: &getfem_geom::mesh::MeshData,
     cv: usize,
@@ -3609,11 +3687,12 @@ impl Workspace {
         "contact displacement {var} is not a finite element variable"
       )));
     };
-    if mf_dofs.reduction().is_some() {
-      return Err(Error::InvalidArgument(format!(
-        "contact displacement {var} on a space with reduction matrices: not yet available"
-      )));
-    }
+    let value = match mf_dofs.reduction() {
+      Some(_) => ext
+        .get(var)
+        .ok_or_else(|| Error::Internal(format!("contact displacement {var}: not extended")))?,
+      None => &st.value,
+    };
     let num = &mf_dofs.numbering;
     if num.linked_mesh().geometry_version() != m.geometry_version() {
       return Err(Error::InvalidArgument(format!(
@@ -3632,7 +3711,7 @@ impl Workspace {
     let coef = num
       .ind_basic_dof_of_element(cv)
       .iter()
-      .map(|&d| st.value[d])
+      .map(|&d| value[d])
       .collect();
     Ok(Disp {
       pf: pf.clone(),
@@ -3669,6 +3748,7 @@ impl Workspace {
       var_mfs,
       var_imds,
       transformations,
+      ext: BTreeMap::new(),
     })
   }
 
@@ -3693,8 +3773,19 @@ impl Workspace {
         .filter(|(_, st)| matches!(st.space, Space::Fixed))
         .map(|(k, st)| (k.clone(), st.value.clone()))
         .collect();
-      let var_mfs = &asm_args.var_mfs;
-      let disp = |v: &str, m: &getfem_geom::mesh::MeshData, cv: usize| self.disp(var_mfs, v, m, cv);
+      for b in &c.boundaries {
+        if let Some(mf_dofs) = asm_args.var_mfs.get(&b.disp)
+          && mf_dofs.reduction().is_some()
+          && !asm_args.ext.contains_key(&b.disp)
+          && let Some(st) = self.variables.get(&b.disp)
+        {
+          let v = mf_dofs.extend_vector(&st.value)?;
+          asm_args.ext.insert(b.disp.clone(), v);
+        }
+      }
+      let (var_mfs, ext) = (&asm_args.var_mfs, &asm_args.ext);
+      let disp =
+        |v: &str, m: &getfem_geom::mesh::MeshData, cv: usize| self.disp(var_mfs, ext, v, m, cv);
       let rt = InitializedContact::new(name, c, &self.defs, data, &disp)?;
       built.push((
         name.clone(),
@@ -4263,8 +4354,8 @@ impl InterpolationArg for (&Vec<Vec<f64>>, &getfem_geom::mesh::Mesh) {
 #[cfg(test)]
 mod tests;
 
-/// GetFEM's ref_elt_dim_of_mesh: the dimension of the first element of
-/// the region (a 1D mesh in 2D: 1), the mesh dimension if none.
+/// The dimension of the first element of the region (a 1D mesh in 2D: 1),
+/// the mesh dimension if none.
 fn ref_elt_dim_of_mesh(m: &getfem_geom::mesh::Mesh, region: &Region) -> Result<usize> {
   let md = m.snapshot();
   let first = if region.id() == ALL {

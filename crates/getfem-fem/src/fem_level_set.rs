@@ -15,7 +15,7 @@ use crate::mesh_fem::MeshFem;
 use crate::mesh_level_set::{MeshLevelSet, Zone, ZoneSet, merge_zoneset, merge_zonesets};
 use crate::{Error, Result};
 
-/// The element of an enriched convex (GetFEM fem_level_set).
+/// The element of an enriched convex.
 #[derive(Debug)]
 struct FemLevelSet {
   name: String,
@@ -30,15 +30,14 @@ struct FemLevelSet {
   dofs: Vec<DofDesc>,
   /// per DOF: the DOF of bfem it copies
   base_of: Vec<usize>,
-  /// the zone ids (GetFEM find_zone_id) by the signs of the level sets at
-  /// the point: few per element
+  /// the zone ids by the signs of the level sets at the point: few per element
   zone_ids: std::sync::Mutex<ZoneIds>,
 }
 
 /// per signs of the level sets: the zone ids of the enriched DOFs
 type ZoneIds = Vec<(Vec<u8>, Arc<Vec<bool>>)>;
 
-/// GetFEM are_zones_compatible_: a is compatible with the sub-zone b
+/// Whether a is compatible with the sub-zone b
 fn compatible(a: &[u8], b: &[u8]) -> bool {
   a.len() == b.len() && a.iter().zip(b).all(|(x, y)| *x == b'0' || x == y)
 }
@@ -99,8 +98,8 @@ impl FemLevelSet {
     })
   }
 
-  /// per enriched DOF: whether its zone contains the point (GetFEM
-  /// find_zone_id); the level set the point is on takes the side of c
+  /// per enriched DOF: whether its zone contains the point; the level set the
+  /// point is on takes the side of c
   fn zone_ids(&self, c: &FemCtx) -> Result<Arc<Vec<bool>>> {
     let mut z = self.common.clone();
     for (i, l, id) in &self.ls {
@@ -214,11 +213,10 @@ impl Fem for FemLevelSet {
 }
 
 impl MeshFem {
-  /// The space mf enriched by the zones of the level sets of mls (GetFEM
-  /// mesh_fem_level_set): a basic DOF of mf whose support touches a cut
-  /// convex and meets several zones becomes one DOF per zone. mf of qdim 1,
-  /// not reduced; built from the current cut: build it again after it
-  /// changes.
+  /// The space mf enriched by the zones of the level sets of mls: a basic DOF
+  /// of mf whose support touches a cut convex and meets several zones becomes
+  /// one DOF per zone. mf of qdim 1, not reduced; built from the current cut:
+  /// build it again after it changes.
   pub fn from_level_set(mls: &MeshLevelSet, mf: &MeshFem) -> Result<MeshFem> {
     if mf.qdim() != 1 {
       return Err(Error::InvalidArgument(

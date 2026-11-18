@@ -43,7 +43,7 @@ impl SliceSimplex {
   }
 }
 
-/// The convex being sliced (GetFEM mesh_slicer state).
+/// The convex being sliced.
 pub struct SlicerState<'m> {
   pub m: &'m MeshData,
   pub cv: usize,
@@ -170,7 +170,7 @@ impl SliceField {
   }
 }
 
-/// What a volume slicer keeps (GetFEM slicer_volume orient).
+/// What a volume slicer keeps.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Orient {
   /// the inside of the volume
@@ -559,7 +559,7 @@ impl SlicerAction for SlicerVolume {
 const TET_FACES: [[usize; 3]; 4] = [[0, 2, 1], [1, 2, 3], [1, 3, 0], [0, 3, 2]];
 
 /// Boundary of a slice: the simplexes on the given faces of the mesh (and
-/// on the slice faces), after the action a (GetFEM slicer_boundary).
+/// on the slice faces), after the action a.
 pub struct SlicerBoundary {
   a: Box<dyn SlicerAction>,
   convex_faces: BTreeMap<usize, u32>,
@@ -638,7 +638,7 @@ impl SlicerAction for SlicerBoundary {
   }
 }
 
-/// The union of the slices of a and b (GetFEM slicer_union).
+/// The union of the slices of a and b.
 pub struct SlicerUnion {
   a: Box<dyn SlicerAction>,
   b: Box<dyn SlicerAction>,
@@ -691,7 +691,7 @@ impl SlicerAction for SlicerUnion {
   }
 }
 
-/// The intersection of the slices of a and b (GetFEM slicer_intersect).
+/// The intersection of the slices of a and b.
 pub struct SlicerIntersect {
   a: Box<dyn SlicerAction>,
   b: Box<dyn SlicerAction>,
@@ -713,7 +713,7 @@ impl SlicerAction for SlicerIntersect {
   }
 }
 
-/// The complement of the slice of a (GetFEM slicer_complementary).
+/// The complement of the slice of a.
 pub struct SlicerComplementary {
   a: Box<dyn SlicerAction>,
 }
@@ -751,7 +751,7 @@ impl SlicerAction for SlicerComplementary {
 }
 
 /// Shrink each convex toward its center (by coef < 1), keeping only the
-/// faces of tetrahedra (GetFEM slicer_explode).
+/// faces of tetrahedra.
 pub struct SlicerExplode {
   pub coef: f64,
 }
@@ -802,8 +802,7 @@ impl SlicerAction for SlicerExplode {
   }
 }
 
-/// Move the nodes by a displacement field (qdim = mesh dimension)
-/// (GetFEM slicer_apply_deformation).
+/// Move the nodes by a displacement field (qdim = mesh dimension).
 pub struct SlicerApplyDeformation {
   pub f: SliceField,
 }
@@ -839,7 +838,7 @@ pub struct ConvexSlice {
   pub simplexes: Vec<SliceSimplex>,
 }
 
-/// A slice kept for exports and interpolation (GetFEM stored_mesh_slice).
+/// A slice kept for exports and interpolation.
 #[derive(Clone, Debug, Default)]
 pub struct StoredMeshSlice {
   pub cvlst: Vec<ConvexSlice>,
@@ -851,7 +850,7 @@ pub struct StoredMeshSlice {
 
 impl StoredMeshSlice {
   /// The slice of the convexes (or faces) of region by the actions, each
-  /// convex refined nrefine times (GetFEM stored_mesh_slice::build).
+  /// convex refined nrefine times.
   pub fn build(
     m: &MeshData,
     actions: &mut [&mut dyn SlicerAction],
@@ -989,7 +988,7 @@ impl StoredMeshSlice {
   }
 
   /// Values of a field at the nodes of the slice, qdim per node in node
-  /// order (GetFEM stored_mesh_slice::interpolate); zero outside mf.
+  /// order; zero outside mf.
   pub fn interpolate(&self, m: &MeshData, f: &SliceField) -> Result<Vec<f64>> {
     let mut out = vec![];
     for c in &self.cvlst {
@@ -1082,12 +1081,12 @@ fn reverted(m: &MeshData, cv: usize, gt: &PGeoTrans) -> Result<bool> {
   )
 }
 
-/// The mesh slicer loop (GetFEM mesh_slicer::exec_): refine each convex
-/// or face of region, apply the actions, hand the result to done. With
-/// mls, the cut convexes are their sub-simplices, each refined nrefine
-/// times (GetFEM: Bank refinements of the sub-mesh), with nodes of their
-/// own, the reference points 1% toward the simplex centre (on the side of
-/// the simplex for discontinuous fields, GetFEM).
+/// The mesh slicer loop: refine each convex or face of region, apply the
+/// actions, hand the result to done. With mls, the cut convexes are their
+/// sub-simplices, each refined nrefine times (GetFEM: Bank refinements of
+/// the sub-mesh), with nodes of their own, the reference points 1% toward
+/// the simplex centre (on the side of the simplex for discontinuous
+/// fields, GetFEM).
 fn exec(
   m: &MeshData,
   mls: Option<&MeshLevelSet>,

@@ -1,4 +1,4 @@
-//! B-bar and F-bar (new, not in GetFEM) with the projected gradient
+//! B-bar and F-bar with the projected gradient
 //! elementary transformation: G0 = Elementary_transformation(u, mean, G), the
 //! element mean of Grad_u on a P0 space G.
 //! - exact for affine fields on distorted quadrilaterals;

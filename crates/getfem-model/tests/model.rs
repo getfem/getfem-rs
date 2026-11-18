@@ -67,7 +67,7 @@ fn laplace_dirichlet() {
           .unwrap();
       }
       "multiplier degree" => {
-        // GetFEM's overload: a classical space of degree 2 on the mesh of u
+        // a degree: a classical space of degree 2 on the mesh of u
         md.add_Dirichlet_condition_with_multiplier(&mim, "u", 2, bnd, Some(EXACT))
           .unwrap();
       }
@@ -147,8 +147,25 @@ fn explicit_matrix_and_rhs() {
     ws.assembled_vector()
   }
   .to_vec();
-  md.add_explicit_matrix("u", "u", k).unwrap();
-  md.add_explicit_rhs("u", f).unwrap();
+  // at most one of each: added once (here wrong), then replaced
+  let half = |m: &getfem_linalg::sparse::Csr<f64>| {
+    let mut h = m.clone();
+    h.val.iter_mut().for_each(|v| *v *= 0.5);
+    h
+  };
+  md.set_explicit_matrix("u", "u", Some(half(&k))).unwrap();
+  md.set_explicit_rhs("u", Some(vec![0.0; f.len()])).unwrap();
+  md.set_explicit_matrix("u", "u", Some(k.clone())).unwrap();
+  md.set_explicit_rhs("u", Some(f.clone())).unwrap();
+  assert_eq!(md.summary().matches("explicit").count(), 2);
+  md.set_explicit_matrix("u", "u", None).unwrap();
+  md.set_explicit_rhs("u", None).unwrap();
+  md.set_explicit_rhs("u", None).unwrap();
+  assert!(!md.summary().contains("explicit"));
+  assert!(md.set_explicit_rhs("v", None).is_err());
+  assert!(md.set_explicit_matrix("u", "v", None).is_err());
+  md.set_explicit_matrix("u", "u", Some(k)).unwrap();
+  md.set_explicit_rhs("u", Some(f)).unwrap();
   let g: Vec<f64> = (0..mf.nb_basic_dof().unwrap())
     .map(|d| exact(&mf.point_of_basic_dof(d).unwrap()))
     .collect();

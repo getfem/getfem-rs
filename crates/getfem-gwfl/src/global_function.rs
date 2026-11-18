@@ -18,7 +18,7 @@ use crate::{Error, Result};
 /// derived, or none: zero).
 struct PointFunction {
   n: usize,
-  /// value, gradient (n), Hessian (n x n) (GetFEM global_function_parser)
+  /// value, gradient (n), Hessian (n x n)
   f_val: Option<GaFunction>,
   f_grad: Option<GaFunction>,
   f_hess: Option<GaFunction>,
@@ -191,12 +191,12 @@ impl GlobalFunctionImpl for BoundedBy {
 
 /// The global functions of GWFL expressions.
 pub trait GlobalFunctionExpr: Sized {
-  /// GetFEM's global_function_parser: the value, and optionally the
-  /// gradient (a vector) and the Hessian (a matrix) of X in dimension dim
-  /// (macros x, y, z, w); the derivatives not given are derived.
+  /// The function given by expressions of X in dimension dim (macros x,
+  /// y, z, w): the value, and optionally the gradient (a vector) and the
+  /// Hessian (a matrix); the derivatives not given are derived.
   fn parser(dim: usize, val: &str, grad: Option<&str>, hess: Option<&str>) -> Result<Self>;
-  /// GetFEM's global_function_bounded with an expression: f on the box
-  /// [min, max], in its support where is_in > 0.
+  /// f on the box [min, max], in its support where the expression is_in
+  /// is positive.
   fn bounded_by(f: &GlobalFunction, min: &[f64], max: &[f64], is_in: &str) -> Result<Self>;
 }
 
@@ -242,10 +242,10 @@ impl CrackTipFunctionImpl for TipParser {
 
 /// The functions of the crack tip coordinates of GWFL expressions.
 pub trait CrackTipFunctionExpr: Sized {
-  /// GetFEM's parser_xy_function (Python GlobalFunction('parser')): the
-  /// value, and optionally the gradient (a 2-vector) and the Hessian (2 x
-  /// 2, or 4 values column-major) of x, y, r = sqrt(x*x+y*y), theta =
-  /// atan2(y, x); the derivatives not given are derived.
+  /// The function given by expressions of x, y, r = sqrt(x*x+y*y), theta =
+  /// atan2(y, x) (Python GlobalFunction('parser')): the value, and
+  /// optionally the gradient (a 2-vector) and the Hessian (2 x 2, or 4
+  /// values column-major); the derivatives not given are derived.
   fn parser(val: &str, grad: Option<&str>, hess: Option<&str>) -> Result<Self>;
 }
 

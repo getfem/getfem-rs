@@ -279,7 +279,7 @@ pub static FUNCTIONS: &[Function] = &[
   f!(
     "DER_PDFUNC_NEG_PART",
     One(|t| if t >= 0.0 { 0.0 } else { -1.0 }),
-    "-Heaviside(-t)",
+    "",
     ""
   ),
   f!(
@@ -309,6 +309,7 @@ pub const SPEC_OPS: &[&str] = &[
   "element_size",
   "element_K",
   "element_B",
+  "element_curvature",
   "Normal",
   "Sym",
   "Skew",

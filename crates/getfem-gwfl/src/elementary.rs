@@ -29,7 +29,7 @@ pub trait ElementaryTransformation: Send + Sync + std::fmt::Debug {
 }
 
 /// Vector basis values at xref: tv[k][a], k = i*q + c for scalar elements
-/// with q = n copies (GetFEM vectorize_base_tensor).
+/// with q = n copies.
 fn vector_basis(
   pf: &PFem,
   gt: &PGeoTrans,

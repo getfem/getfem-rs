@@ -108,7 +108,7 @@ pub fn simulate(p: &Params, on_step: &mut dyn FnMut(&Step, &Model)) {
     "(u - pred)/(beta*dt*dt).Test_u + (clambda*Div_u*Id(2) + 2*cmu*Sym(Grad_u)):Grad_Test_u - load.Test_u",
   )
   .unwrap();
-  md.add_term(&mimc, CONTACT, "r*sqr(neg_part(X(2) + u(2)))")
+  md.add_term(&mimc, CONTACT, "r*sqr_neg_part(X(2) + u(2))")
     .unwrap();
 
   let record =

@@ -87,11 +87,17 @@ def test_periodic_cell_with_macro_strain():
   # (XY = -YX) has no energy: penalized by (XY - YX)^2
   L = np.zeros(newsize)
   L[:4] = [sigma[0, 0], sigma[0, 1], sigma[1, 0], sigma[1, 1]]
-  md.add_explicit_rhs("u", L)
+  # one explicit rhs and matrix: set (here zero), replaced, removed by None
+  md.set_explicit_rhs("u", np.zeros(newsize))
+  md.set_explicit_rhs("u", L)
   P = gf.Spmat("empty", newsize)
+  md.set_explicit_matrix("u", "u", P)
+  md.set_explicit_matrix("u", "u", None)
+  with pytest.raises(ValueError, match="unknown variable v"):
+    md.set_explicit_rhs("v", None)
   for i, j, v in [(1, 1, 1.), (1, 2, -1.), (2, 1, -1.), (2, 2, 1.)]:
     P.assign(i, j, v)
-  md.add_explicit_matrix("u", "u", P)
+  md.set_explicit_matrix("u", "u", P)
   nit, conv, info = md.solve()
   assert conv
 

@@ -16,7 +16,7 @@ pub type OpResult<T> = std::result::Result<T, String>;
 pub trait NonlinearOperator: Send + Sync {
   /// shape of the result, None if the arguments do not fit
   fn result_shape(&self, args: &[&[usize]]) -> Option<Vec<usize>>;
-  /// the value into out (sized by result_shape; GetFEM: value(args, result))
+  /// the value into out (sized by result_shape)
   fn value(&self, args: &[&[f64]], shapes: &[&[usize]], out: &mut [f64]) -> OpResult<()>;
   /// derivative w.r.t. argument i (0-based): result x argument i
   fn derivative(
@@ -98,7 +98,6 @@ fn mult(a: &[f64], b: &[f64], n: usize) -> Small {
   c
 }
 
-/// gmm::vect_norm2_sqr, gmm::vect_norm2
 /// a small matrix or tensor, on the stack up to C entries (3 x 3 by default;
 /// no allocation per point, as GetFEM's static work matrices)
 #[derive(Clone)]
@@ -156,7 +155,7 @@ fn scaled(t: &[f64], c: f64, out: &mut [f64]) {
   }
 }
 
-/// gmm::mat_norminf: largest row sum of absolute values
+/// largest row sum of absolute values
 fn mat_norminf(a: &[f64], n: usize) -> f64 {
   (0..n)
     .map(|i| (0..n).fold(0.0, |s, j| s + a[i + n * j].abs()))
@@ -382,7 +381,7 @@ fn expm(a: &[f64], n: usize) -> OpResult<Small> {
   Ok(x)
 }
 
-/// GetFEM's expm_deriv: dexp(A)[i + N(j + N(k + N l))] = d exp(A)_ij / d A_kl
+/// dexp(A)[i + N(j + N(k + N l))] = d exp(A)_ij / d A_kl
 fn expm_deriv(a: &[f64], n: usize) -> OpResult<Small<81>> {
   let n2 = n * n;
   let p = Pade::new(a, n);
@@ -431,7 +430,7 @@ trait LogmScalar:
   fn im(self) -> f64;
   fn abs(self) -> f64;
   fn sqrt(self) -> Self;
-  /// gmm::safe_divide
+  /// self / b (complex: both scaled first, against overflow)
   fn safe_divide(self, b: Self) -> Self;
 }
 
@@ -542,8 +541,8 @@ impl LogmScalar for Cplx {
   }
 }
 
-/// gmm::sqrtm_utri_inplace: square root of an upper triangular matrix
-/// (from GNU Octave), n x n column-major
+/// Square root of an upper triangular matrix (from GNU Octave), n x n
+/// column-major
 fn sqrtm_utri_inplace<T: LogmScalar>(a: &mut [T], n: usize) {
   for j in 0..n {
     let ajj = a[j + n * j];
@@ -560,9 +559,9 @@ fn sqrtm_utri_inplace<T: LogmScalar>(a: &mut [T], n: usize) {
   }
 }
 
-/// gmm::logm_utri_inplace: logarithm of an upper triangular matrix,
-/// inverse scaling and squaring with Gauss-Legendre Pade approximants
-/// (Higham, Functions of matrices, algorithm 11.9)
+/// Logarithm of an upper triangular matrix, inverse scaling and squaring
+/// with Gauss-Legendre Pade approximants (Higham, Functions of matrices,
+/// algorithm 11.9)
 fn logm_utri_inplace<T: LogmScalar>(s: &mut [T], n: usize) -> OpResult<()> {
   let tol = f64::EPSILON;
   for i in 0..n.saturating_sub(1) {
@@ -724,11 +723,11 @@ fn logm_utri_inplace<T: LogmScalar>(s: &mut [T], n: usize) -> OpResult<()> {
   Ok(())
 }
 
-/// gmm::block2x2_reduction (with complex scalars, as gmm::logm calls it):
-/// each 2x2 diagonal block of the quasi-triangular H made triangular by the
-/// unitary reflector P = I - 2 v v^H / |v|^2, H <- P H P, Q <- Q P. GetFEM
-/// applies P only to the 2x2 block of H, which is not a similarity of the
-/// whole matrix (Logm of a rotation: 0 instead of its generator).
+/// With complex scalars, as logm calls it: each 2x2 diagonal block of the
+/// quasi-triangular H made triangular by the unitary reflector P = I - 2 v
+/// v^H / |v|^2, H <- P H P, Q <- Q P. GetFEM applies P only to the 2x2
+/// block of H, which is not a similarity of the whole matrix (Logm of a
+/// rotation: 0 instead of its generator).
 fn block2x2_reduction(h: &mut [Cplx], q: &mut [Cplx], n: usize, tol: f64) {
   if n < 2 {
     return;
@@ -771,8 +770,8 @@ fn block2x2_reduction(h: &mut [Cplx], q: &mut [Cplx], n: usize, tol: f64) {
   }
 }
 
-/// gmm::logm: principal logarithm by the Schur decomposition A = Q S Q^T,
-/// then logm_utri_inplace on S, complex if S has 2x2 blocks
+/// Principal logarithm by the Schur decomposition A = Q S Q^T, then
+/// logm_utri_inplace on S, complex if S has 2x2 blocks
 fn logm(a: &[f64], n: usize) -> OpResult<Small> {
   let (mut s, mut q) = (Small::<9>::from(&a[..n * n]), zeros(n));
   getfem_linalg::dense_qr::schur(&mut s, &mut q, n).map_err(|e| format!("Logm: {e}"))?;
@@ -840,7 +839,7 @@ fn delta(i: usize, j: usize) -> f64 {
 }
 
 /// (I+Grad_u)^-T n normalized, with f = (I+Grad_u)^-1 and the norm of
-/// (I+Grad_u)^-T n (GetFEM's Transformed_unit_vector)
+/// (I+Grad_u)^-T n
 fn transformed_unit_vector(
   grad_u: &[f64],
   nv: &[f64],

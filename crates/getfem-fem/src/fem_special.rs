@@ -53,7 +53,7 @@ fn p1_basis(n: usize) -> Vec<Poly> {
     .collect()
 }
 
-/// PK plus the cubic bubble at the barycenter (GetFEM PK_with_cubic_bubble_).
+/// PK plus the cubic bubble at the barycenter.
 pub(crate) fn pk_with_cubic_bubble(n: usize, k: usize) -> Result<PFem> {
   if k > n {
     return Err(Error::InvalidArgument(format!(
@@ -131,7 +131,7 @@ pub(crate) fn p1_bubble_face_lagrange() -> Result<PFem> {
   })
 }
 
-/// Crouzeix-Raviart P1 on triangles (GetFEM P1_nonconforming_fem).
+/// Crouzeix-Raviart P1 on triangles.
 pub(crate) fn p1_nonconforming() -> Result<PFem> {
   cached("FEM_P1_NONCONFORMING".into(), |name| {
     let nodesref = vec![vec![0.5, 0.5], vec![0.0, 0.5], vec![0.5, 0.0]];

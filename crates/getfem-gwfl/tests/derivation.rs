@@ -300,4 +300,11 @@ fn native_functions_and_differentiability() {
   assert!(asm("pos_part(u)*Test_u", 2).is_ok());
   let e = asm("Heaviside(u)*Test_u", 2).unwrap_err().to_string();
   assert!(e.contains("Heaviside cannot be differentiated"), "{e}");
+  assert!(asm("neg_part(u)*Test_u", 2).is_ok());
+  for f in ["pos_part", "neg_part"] {
+    let e = asm(&format!("sqr({f}(u))"), 2).unwrap_err().to_string();
+    assert!(e.contains("cannot be differentiated"), "{f}: {e}");
+    assert!(asm(&format!("sqr_{f}(u)"), 2).is_ok(), "sqr_{f}");
+    assert!(asm(&format!("half_sqr_{f}(u)"), 2).is_ok(), "half_sqr_{f}");
+  }
 }

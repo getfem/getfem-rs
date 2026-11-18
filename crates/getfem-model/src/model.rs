@@ -82,8 +82,8 @@ pub struct Model {
   explicit: Vec<Explicit>,
   /// constraints of the multipliers added by the helpers, per variable
   mults: std::collections::BTreeMap<String, Vec<Multiplier>>,
-  /// GetFEM's real tangent matrix and rhs (-R) of the last assembly; the
-  /// matrix's storage reused by the next one
+  /// the tangent matrix and rhs (-R) of the last assembly; the matrix's
+  /// storage reused by the next one
   tangent_matrix: ColMatrix<f64>,
   rhs: Vec<f64>,
   /// with condensation (GetFEM full_rrhs, internal_rTM, internal_sol): the
@@ -91,7 +91,7 @@ pub struct Model {
   condensed: Option<(Vec<f64>, Csr<f64>, Vec<f64>)>,
 }
 
-/// What an assembly builds (GetFEM's model::build_version).
+/// What an assembly builds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BuildVersion {
   /// the rhs only (BUILD_RHS); the tangent matrix stays as it was
@@ -113,8 +113,8 @@ pub enum Constraint {
   NormalDerivative,
 }
 
-/// The multiplier space of a Dirichlet condition (GetFEM's overloads): a
-/// mesh_fem, or a degree (classical space of the qdim of var on its mesh).
+/// The multiplier space of a Dirichlet condition: a mesh_fem, or a degree
+/// (classical space of the qdim of var on its mesh).
 pub trait MultiplierArg {
   fn mesh_fem(self, md: &Model, var: &str) -> Result<MeshFem>;
 }
@@ -149,13 +149,13 @@ struct Multiplier {
   cols: Vec<RsVector<f64>>,
 }
 
-/// Native contribution (GetFEM add_explicit_matrix / add_explicit_rhs):
-/// tangent block M (rows of var, columns of col) with residual M u_col, or
+/// Native contribution (set_explicit_matrix, set_explicit_rhs): tangent
+/// block M (rows of var1, columns of var2) with residual M u_var2, or
 /// a right-hand side L with residual -L.
 enum Explicit {
   Matrix {
-    var: String,
-    col: String,
+    var1: String,
+    var2: String,
     m: Csr<f64>,
   },
   Rhs {
@@ -177,7 +177,7 @@ impl Model {
     &mut self.ws
   }
 
-  /// A variable on the DOFs of mf on a region, as GetFEM (see
+  /// A variable on the DOFs of mf on a region (see
   /// Workspace::add_filtered_fem_variable).
   pub fn add_filtered_fem_variable(
     &mut self,
@@ -519,42 +519,109 @@ impl Model {
     self.push_term(mim, region.into(), expr, TermKind::Nonlinear)
   }
 
-  /// Explicit tangent block of the equations of var w.r.t. col; the
-  /// residual gets M u_col.
-  pub fn add_explicit_matrix(&mut self, var: &str, col: &str, m: Csr<f64>) -> Result<()> {
-    let size = |v: &str| {
-      self
-        .ws
-        .variable(v)
-        .map(|x| x.len())
-        .ok_or_else(|| Error::InvalidArgument(format!("unknown variable {v}")))
-    };
-    if (m.nrows, m.ncols) != (size(var)?, size(col)?) {
-      return Err(Error::InvalidArgument(format!(
-        "explicit matrix of size {}x{} for {var}, {col}",
-        m.nrows, m.ncols
-      )));
+  /// The explicit tangent block M of the equations of var1 w.r.t. var2 (the
+  /// residual gets M u_var2): set, replaced, or with None removed (not
+  /// assembled at all). At most one per (var1, var2).
+  pub fn set_explicit_matrix(&mut self, var1: &str, var2: &str, m: Option<Csr<f64>>) -> Result<()> {
+    match &m {
+      Some(m) => self.check_explicit_matrix(var1, var2, m)?,
+      None => {
+        self.check_variable(var1)?;
+        self.check_variable(var2)?;
+      }
     }
-    self.explicit.push(Explicit::Matrix {
-      var: var.to_string(),
-      col: col.to_string(),
-      m,
-    });
+    let i = self.explicit_matrix(var1, var2);
+    match (i, m) {
+      (Some(i), Some(m)) => {
+        self.explicit[i] = Explicit::Matrix {
+          var1: var1.to_string(),
+          var2: var2.to_string(),
+          m,
+        }
+      }
+      (None, Some(m)) => self.explicit.push(Explicit::Matrix {
+        var1: var1.to_string(),
+        var2: var2.to_string(),
+        m,
+      }),
+      (Some(i), None) => {
+        self.explicit.remove(i);
+      }
+      (None, None) => {}
+    }
     Ok(())
   }
 
-  /// Explicit right-hand side L of the equations of var (residual -L).
-  pub fn add_explicit_rhs(&mut self, var: &str, l: Vec<f64>) -> Result<()> {
+  /// The explicit right-hand side L of the equations of var (residual
+  /// -L): set, replaced, or with None removed (not assembled at all). At
+  /// most one per variable.
+  pub fn set_explicit_rhs(&mut self, var: &str, l: Option<Vec<f64>>) -> Result<()> {
+    match &l {
+      Some(l) => self.check_explicit_rhs(var, l)?,
+      None => {
+        self.check_variable(var)?;
+      }
+    }
+    let i = self.explicit_rhs(var);
+    match (i, l) {
+      (Some(i), Some(l)) => {
+        self.explicit[i] = Explicit::Rhs {
+          var: var.to_string(),
+          l,
+        }
+      }
+      (None, Some(l)) => self.explicit.push(Explicit::Rhs {
+        var: var.to_string(),
+        l,
+      }),
+      (Some(i), None) => {
+        self.explicit.remove(i);
+      }
+      (None, None) => {}
+    }
+    Ok(())
+  }
+
+  fn explicit_matrix(&self, v: &str, c: &str) -> Option<usize> {
+    self
+      .explicit
+      .iter()
+      .position(|e| matches!(e, Explicit::Matrix { var1, var2, .. } if var1 == v && var2 == c))
+  }
+
+  fn explicit_rhs(&self, v: &str) -> Option<usize> {
+    self
+      .explicit
+      .iter()
+      .position(|e| matches!(e, Explicit::Rhs { var, .. } if var == v))
+  }
+
+  fn check_variable(&self, v: &str) -> Result<usize> {
+    self
+      .ws
+      .variable(v)
+      .map(|x| x.len())
+      .ok_or_else(|| Error::InvalidArgument(format!("unknown variable {v}")))
+  }
+
+  fn check_explicit_matrix(&self, var1: &str, var2: &str, m: &Csr<f64>) -> Result<()> {
+    let size = |v: &str| self.check_variable(v);
+    if (m.nrows, m.ncols) != (size(var1)?, size(var2)?) {
+      return Err(Error::InvalidArgument(format!(
+        "explicit matrix of size {}x{} for {var1}, {var2}",
+        m.nrows, m.ncols
+      )));
+    }
+    Ok(())
+  }
+
+  fn check_explicit_rhs(&self, var: &str, l: &[f64]) -> Result<()> {
     if self.ws.variable(var).map(|x| x.len()) != Some(l.len()) {
       return Err(Error::InvalidArgument(format!(
         "explicit rhs of size {} for {var}",
         l.len()
       )));
     }
-    self.explicit.push(Explicit::Rhs {
-      var: var.to_string(),
-      l,
-    });
     Ok(())
   }
 
@@ -871,15 +938,15 @@ impl Model {
     }
   }
 
-  /// GetFEM model::from_variables: the values of the enabled variables,
-  /// in the order of the system, without the internal ones.
+  /// The values of the enabled variables, in the order of the system,
+  /// without the internal ones.
   #[allow(clippy::wrong_self_convention)] // GetFEM's name
   pub fn from_variables(&self) -> Vec<f64> {
     self.values_of_variables(false)
   }
 
-  /// GetFEM model::to_variables: sets the enabled variables, without the
-  /// internal ones, from u (nb_primary_dof values).
+  /// Sets the enabled variables, without the internal ones, from u
+  /// (nb_primary_dof values).
   #[allow(clippy::wrong_self_convention)] // GetFEM's name
   pub fn to_variables(&mut self, u: &[f64]) -> Result<()> {
     self.set_values_of_variables(u, false)
@@ -921,10 +988,10 @@ impl Model {
     Ok(())
   }
 
-  /// GetFEM's model::assembly: the rhs -R and (version All) the tangent
-  /// matrix of all terms and conditions at the current values, kept in the
-  /// model (rhs, tangent_matrix). With Dirichlet elimination the rhs needs
-  /// the tangent: both are built.
+  /// The rhs -R and (version All) the tangent matrix of all terms and
+  /// conditions at the current values, kept in the model (rhs,
+  /// tangent_matrix). With Dirichlet elimination the rhs needs the tangent:
+  /// both are built.
   pub fn assembly(&mut self, version: BuildVersion) -> Result<()> {
     self.condensed = None;
     if version == BuildVersion::AllCondensed {
@@ -952,23 +1019,23 @@ impl Model {
     &self.rhs
   }
 
-  /// GetFEM internal_solution: the internal unknowns' part of the solution
-  /// at zero primary increment, of the last assembly with AllCondensed
+  /// The internal unknowns' part of the solution at zero primary
+  /// increment, of the last assembly with AllCondensed
   pub fn internal_solution(&self) -> Option<&[f64]> {
     self.condensed.as_ref().map(|c| c.2.as_slice())
   }
 
   /// the residual R, the tangent into self.tangent_matrix (its storage
-  /// reused: gmm::clear keeps the columns' capacity)
+  /// reused: clear keeps the columns' capacity)
   fn assemble_all(&mut self, u: &[f64]) -> Result<Vec<f64>> {
     let n = self.ws.nb_dof();
     let mut k = std::mem::take(&mut self.tangent_matrix);
     k.resize(n, n);
     k.clear();
     let mut r = vec![0.0; n];
-    // as GetFEM: the tangents and residuals of the nonlinear terms
-    // assembled together directly into the global matrix and vector (no
-    // matrix per term to merge), then the linear terms' kept matrices added
+    // the tangents and residuals of the nonlinear terms assembled together
+    // directly into the global matrix and vector (no matrix per term to
+    // merge), then the linear terms' kept matrices added
     let nl: Vec<_> = self
       .terms
       .iter()
@@ -1024,10 +1091,10 @@ impl Model {
     let own = own_rows(&k);
     for e in &self.explicit {
       match e {
-        Explicit::Matrix { var, col, m } => {
+        Explicit::Matrix { var1, var2, m } => {
           let (Some(ri), Some(ci)) = (
-            self.ws.interval_of_variable(var),
-            self.ws.interval_of_variable(col),
+            self.ws.interval_of_variable(var1),
+            self.ws.interval_of_variable(var2),
           ) else {
             continue; // disabled
           };
@@ -1089,10 +1156,10 @@ impl Model {
     }
     for e in &self.explicit {
       match e {
-        Explicit::Matrix { var, col, m } => {
+        Explicit::Matrix { var1, var2, m } => {
           let (Some(ri), Some(ci)) = (
-            self.ws.interval_of_variable(var),
-            self.ws.interval_of_variable(col),
+            self.ws.interval_of_variable(var1),
+            self.ws.interval_of_variable(var2),
           ) else {
             continue; // disabled
           };
@@ -1124,11 +1191,11 @@ impl Model {
     }
     let internal = |v: &str| self.ws.is_internal_variable(v);
     for e in &self.explicit {
-      if let Explicit::Matrix { var, col, .. } = e
-        && (internal(var) || internal(col))
+      if let Explicit::Matrix { var1, var2, .. } = e
+        && (internal(var1) || internal(var2))
       {
         return Err(Error::InvalidArgument(format!(
-          "explicit matrix on the internal variable {var} or {col}: not available"
+          "explicit matrix on the internal variable {var1} or {var2}: not available"
         )));
       }
     }
@@ -1152,10 +1219,10 @@ impl Model {
     res?;
     let own = own_rows(&k);
     for e in &self.explicit {
-      if let Explicit::Matrix { var, col, m } = e
+      if let Explicit::Matrix { var1, var2, m } = e
         && let (Some(ri), Some(ci)) = (
-          self.ws.interval_of_variable(var),
-          self.ws.interval_of_variable(col),
+          self.ws.interval_of_variable(var1),
+          self.ws.interval_of_variable(var2),
         )
       {
         for i in (0..m.nrows).filter(|&i| own.as_ref().is_none_or(|o| o[ri.start + i])) {
@@ -1249,9 +1316,9 @@ impl Model {
     }
     for e in &self.explicit {
       match e {
-        Explicit::Matrix { var, col, m } => {
+        Explicit::Matrix { var1, var2, m } => {
           s += &format!(
-            "  explicit matrix {var} x {col}, {} x {}\n",
+            "  explicit matrix {var1} x {var2}, {} x {}\n",
             m.nrows, m.ncols
           )
         }

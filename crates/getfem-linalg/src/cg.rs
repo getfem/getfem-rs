@@ -1,5 +1,5 @@
-//! Preconditioned conjugate gradient (gmm::cg with gmm::diagonal_precond),
-//! the matrix given by its product.
+//! Conjugate gradient preconditioned by the inverse of the diagonal, the
+//! matrix given by its product.
 
 use crate::error::{Error, Result};
 use crate::vect::vect_sp;

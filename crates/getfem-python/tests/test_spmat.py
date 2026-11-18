@@ -190,7 +190,7 @@ def test_asm_generic_select_output_and_tangent():
   md.add_fem_variable("p", mf)
   md.set_variable("u", "X(1)+X(2)")
   n = mf.nb_dof()
-  # order 2 of a residual: its tangent (GetFEM's)
+  # order 2 of a residual: its tangent
   res = "sqr(u)*Test_p + Grad(u).Grad(Test_u)"
   tan = "2*u*Test2_u*Test_p + Grad(Test2_u).Grad(Test_u)"
   K = dense(gf.asm_generic(mim, 2, res, -1, md))
@@ -214,12 +214,12 @@ def test_asm_generic_select_output_and_tangent():
 def test_add_data():
   m, mf, mim = unit_square()
   md = gf.Model()
-  # a tensor, column-major (GetFEM's)
+  # a tensor, column-major
   md.add_data("C", [2, 3])
   assert gf.asm_generic(mim, 0, "Norm_sqr(C)", -1, md) == 0.
   md.set_variable("C", [1., 2., 3., 4., 5., 6.])
   assert np.isclose(gf.asm_generic(mim, 0, "C(1,2)+10*C(2,1)", -1, md), 23.)
   md.add_initialized_data("D", [1., 2., 3., 4.], [2, 2])
   assert np.isclose(gf.asm_generic(mim, 0, "D(1,2)", -1, md), 3.)
-  md.add_initialized_data("s", 2., 1)  # size 1: a scalar (GetFEM's)
+  md.add_initialized_data("s", 2., 1)  # size 1: a scalar
   assert np.isclose(gf.asm_generic(mim, 0, "s", -1, md), 2.)

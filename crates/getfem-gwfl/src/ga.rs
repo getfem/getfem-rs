@@ -143,6 +143,7 @@ pub(crate) enum Instruction {
   MatAssemblyPt { t: u32, v1: u32, v2: u32 },
   EltK { t: u32 },
   EltB { t: u32 },
+  EltCurvature { t: u32 },
   /// element: the local coefficients of variable v into c
   SliceDofs { v: u32, c: u32 },
   /// point: values, gradients of the basis of variable v
@@ -253,6 +254,7 @@ impl Instruction {
       | Instruction::ElemTest { t, .. }
       | Instruction::EltK { t, .. }
       | Instruction::EltB { t, .. }
+      | Instruction::EltCurvature { t, .. }
       | Instruction::Val { t, .. }
       | Instruction::Grad { t, .. }
       | Instruction::CopyValBase { t, .. }
@@ -429,7 +431,7 @@ pub(crate) struct InstructionSet {
   /// size of the gradient index (compilation only)
   sparsity: Vec<(u8, u8, u8)>,
   /// compiled subtrees by structure: an equal one shares the tensor
-  /// (GetFEM: node_list, sub_tree_are_equal, set_to_copy)
+  /// (GetFEM: sub_tree_are_equal, set_to_copy)
   node_list: std::collections::HashMap<u32, u32>,
   /// the copied test functions by (variable, derivative): the other test
   /// function of the same variable shares the copy (GetFEM:
@@ -447,6 +449,8 @@ pub(crate) struct InstructionSet {
   /// element_size, K and B are read
   pub needs_elt_size: bool,
   pub needs_kb: bool,
+  /// element_curvature is read
+  pub needs_curvature: bool,
   /// Hessians of basis functions read
   pub needs_hess: bool,
   /// values at the points, no assembly
@@ -524,6 +528,8 @@ pub(crate) struct ExecState {
   pub elt_size: f64,
   pub k: Vec<f64>,
   pub b: Vec<f64>,
+  /// element_curvature (n x n)
+  pub curvature: Vec<f64>,
   /// point index in the element, number of points
   pub ipt: usize,
   pub nbpt: usize,
@@ -1103,6 +1109,7 @@ impl InstructionSet {
       elt_size: 0.0,
       k: vec![],
       b: vec![],
+      curvature: vec![],
       ipt: 0,
       nbpt: 0,
       acc: 0.0,
@@ -1684,6 +1691,10 @@ impl InstructionSet {
             &m.b
           };
           m.buffer[r].copy_from_slice(&src[..n]);
+        }
+        Instruction::EltCurvature { t } => {
+          let r = m.range(t);
+          m.buffer[r].copy_from_slice(&m.curvature);
         }
         Instruction::Nonlin { t, a, b, op } => {
           // arguments and result in the buffer, no allocation (GetFEM:
@@ -2651,8 +2662,8 @@ impl InstructionSet {
     self.sparsity[k] = v;
   }
 
-  /// GetFEM's ga_instruction_contraction_switch: the contraction t = a . b
-  /// of size n by the sparsity of a, b
+  /// The contraction t = a . b of size n, its instruction chosen by the
+  /// sparsity of a, b
   fn contraction_switch(&mut self, t: u32, a: u32, b: u32, n: u32) -> Instruction {
     let (sa, sb) = (self.sp(a), self.sp(b));
     if sa.0 == 1 && sb.0 == 1 && sa.1 as u32 == n && sb.1 as u32 == n {
@@ -2994,6 +3005,12 @@ fn node_new(t: &Tree, i: usize, gis: &mut InstructionSet, cx: &CompileCtx) -> Op
           Instruction::EltB { t: s }
         },
       );
+      s
+    }
+    Ty::EltCurvature => {
+      gis.needs_curvature = true;
+      let s = gis.zeros(size);
+      ins(gis, Instruction::EltCurvature { t: s });
       s
     }
     Ty::CMatrix => {
@@ -3607,6 +3624,7 @@ fn node_new(t: &Tree, i: usize, gis: &mut InstructionSet, cx: &CompileCtx) -> Op
         | Ty::Normal
         | Ty::EltK
         | Ty::EltB
+        | Ty::EltCurvature
         | Ty::InterpX
         | Ty::InterpNormal
         | Ty::InterpEltK
@@ -3755,6 +3773,7 @@ impl GaFunction {
       || gis.needs_normal
       || gis.needs_elt_size
       || gis.needs_kb
+      || gis.needs_curvature
       || !gis.trans.is_empty()
       || !gis.elt_instructions.is_empty()
     {
@@ -4057,15 +4076,15 @@ impl CondensationBlocks {
   }
 }
 
-/// Tests through transformation tr assembled at each point (their target
-/// element changes with the point); on the neighbor element per element
-/// (GetFEM: interpolate false for neighbor_element)
 /// size of the gradient index of a test function of sizes [2, q, N]: 1 if
 /// absent (1D, where GetFEM does not add it)
 fn n3(sizes: &[usize]) -> usize {
   sizes.get(2).copied().unwrap_or(1)
 }
 
+/// Tests through transformation tr assembled at each point (their target
+/// element changes with the point); on the neighbor element per element
+/// (GetFEM: interpolate false for neighbor_element)
 fn per_point(tr: &str) -> bool {
   !(tr.is_empty() || tr == crate::defs::NEIGHBOR)
 }

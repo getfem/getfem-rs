@@ -1,5 +1,5 @@
-//! Structured meshes of boxes (port of getfem_regular_meshes). Same point
-//! and convex numbering as GetFEM.
+//! Structured meshes of boxes (GetFEM's getfem_regular_meshes), with the
+//! same point and convex numbering.
 
 use crate::convex_ref::parallelepiped_of_reference;
 use crate::convex_structure as cs;
@@ -121,7 +121,6 @@ pub fn parallelepiped_regular_prism_mesh(
   iref: &[usize],
 ) -> Result<()> {
   // the simplices of dimension n-1 in dimension n, with the full vectors
-  // (GetFEM: parallelepiped_regular_simplex_mesh_(aux, N-1, org, ivect))
   let mut aux = MeshData::new(n);
   parallelepiped_regular_simplex_mesh(&mut aux, n - 1, org, &ivect[..n - 1], &iref[..n - 1])?;
   let pgt = gt::prism_pk(n, 1)?;
@@ -197,7 +196,7 @@ pub fn regular_unit_mesh(nsubdiv: &[usize], pgt: &PGeoTrans) -> Result<Mesh> {
   Ok(m.into())
 }
 
-/// Box [org, org + sizes] with nsubdiv cells per direction (GetFEM regular_mesh).
+/// Box [org, org + sizes] with nsubdiv cells per direction.
 pub fn regular_mesh(
   pgt: &PGeoTrans,
   nsubdiv: &[usize],
@@ -255,11 +254,11 @@ pub fn noise_unit_mesh(m: &Mesh) -> Result<()> {
   m.set_points(&moves)
 }
 
-/// Disc (ball) of the given radius centred at org, GetFEM's
-/// regular_ball_mesh ("structured_ball"): a core cube scaled by 1/sqrt(2),
-/// one "peel" mesh per direction around it, the points mapped radially
-/// onto the ball; nsubdiv = [core, peel] subdivisions; the copies by
-/// symmetry for symmetries < dim (0: the whole ball, dim: one sector).
+/// Disc (ball) of the given radius centred at org ("structured_ball"): a
+/// core cube scaled by 1/sqrt(2), one "peel" mesh per direction around it,
+/// the points mapped radially onto the ball; nsubdiv = [core, peel]
+/// subdivisions; the copies by symmetry for symmetries < dim (0: the whole
+/// ball, dim: one sector).
 pub fn regular_ball_mesh(
   pgt: &PGeoTrans,
   org: &[f64],
@@ -362,11 +361,13 @@ pub fn regular_ball_mesh(
   Ok(m.into())
 }
 
-/// Spherical shell (GetFEM regular_ball_shell_mesh,
-/// "structured_ball_shell") centred at org, outer radius and thickness:
-/// one sector per direction, each a unit mesh mapped onto the shell
-/// (nsubdiv = [around, across]); the copies by symmetry as
-/// regular_ball_mesh.
+/// Spherical shell ("structured_ball_shell") centred at org, outer radius
+/// and thickness: one sector per direction, each a unit mesh mapped onto
+/// the shell (nsubdiv = [around, across]); the copies by symmetry as
+/// regular_ball_mesh. An org of dimension dim(pgt) + 1: the sphere of
+/// that radius itself (a circle in 2D, a surface in 3D: elements of
+/// dimension dim(pgt), nsubdiv[0] around; thickness, nsubdiv[1] unused;
+/// GetFEM: none).
 pub fn regular_ball_shell_mesh(
   pgt: &PGeoTrans,
   org: &[f64],
@@ -376,40 +377,49 @@ pub fn regular_ball_shell_mesh(
   symmetries: usize,
   noised: bool,
 ) -> Result<Mesh> {
-  let n = pgt.dim();
-  if org.len() != n {
+  let p = pgt.dim();
+  let surface = org.len() == p + 1;
+  if org.len() != p && !surface {
     return Err(Error::InvalidArgument(format!(
-      "regular ball shell mesh: org of size {} for dim {n}",
-      org.len()
+      "regular ball shell mesh: org of size {} for dim {p} (or {}: the sphere)",
+      org.len(),
+      p + 1
     )));
   }
-  let mut sub = vec![nsubdiv[0]; n];
-  sub[n - 1] = nsubdiv[1];
-  let m0 = regular_unit_mesh(&sub, pgt)?;
-  if noised {
-    noise_unit_mesh(&m0)?;
+  let n = org.len();
+  let mut sub = vec![nsubdiv[0]; p];
+  if !surface {
+    sub[p - 1] = nsubdiv[1];
   }
-  let mut m0 = (*m0.snapshot()).clone();
+  let unit = regular_unit_mesh(&sub, pgt)?;
+  if noised {
+    noise_unit_mesh(&unit)?;
+  }
+  let unit = (*unit.snapshot()).clone();
   // onto the shell: the first n - 1 coordinates as angles, the last across
-  let moves: Vec<(usize, Vec<f64>)> = m0
-    .point_index()
-    .map(|p| {
-      let mut x = m0.point(p).to_vec();
-      let mut l = 1.0;
-      for xk in &mut x[..n - 1] {
-        *xk = (*xk * std::f64::consts::FRAC_PI_4).tan();
-        l += *xk * *xk;
-      }
-      let l = l.sqrt();
-      let r = radius - thickness + thickness * x[n - 1];
-      for xk in &mut x[..n - 1] {
-        *xk *= r / l;
-      }
-      x[n - 1] = r / l;
-      (p, x)
-    })
-    .collect();
-  m0.set_points(&moves)?;
+  // (on the sphere for a surface)
+  let onto = |x: &[f64]| -> Vec<f64> {
+    let mut y: Vec<f64> = x[..n - 1]
+      .iter()
+      .map(|xk| (xk * std::f64::consts::FRAC_PI_4).tan())
+      .collect();
+    let l = y.iter().fold(1.0, |l, v| l + v * v).sqrt();
+    let r = if surface {
+      radius
+    } else {
+      radius - thickness + thickness * x[n - 1]
+    };
+    y.iter_mut().for_each(|v| *v *= r / l);
+    y.push(r / l);
+    y
+  };
+  let mut m0 = MeshData::new(n);
+  for cv in unit.convex_index().collect::<Vec<_>>() {
+    let g = unit.points_of_convex(cv);
+    let pts: Vec<Vec<f64>> = (0..g.ncols()).map(|j| onto(g.col(j))).collect();
+    let refs: Vec<&[f64]> = pts.iter().map(|v| v.as_slice()).collect();
+    m0.add_convex_by_points(unit.trans_of_convex(cv), &refs)?;
+  }
   // one sector per direction: the coordinates permuted cyclically
   let mut perm = Mat::zeros(&[n, n]);
   for i in 0..n - 1 {

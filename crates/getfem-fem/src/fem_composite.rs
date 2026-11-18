@@ -1,7 +1,7 @@
 //! Composite elements (port of getfem_fem_composite and
 //! bgeot_poly_composite): piecewise polynomial basis functions on a
 //! sub-mesh of the reference convex. A point on an interface is evaluated
-//! on the sub-element GetFEM picks (largest box rate first).
+//! on the sub-element of the largest box rate.
 
 use std::sync::Arc;
 
@@ -15,12 +15,13 @@ use crate::fem::{DofDesc, Fem, PFem, Shape, faces_of};
 use crate::fem_transformed::{jac, normal_derivative_correction, polys};
 use crate::{Error, Result};
 
-// ------------------------------------------------------------ sub-mesh
+// ------------------------------------------------------------ precomposite mesh
 
-/// A mesh of the reference convex with linear sub-elements (GetFEM
-/// mesh_precomposite).
+/// A mesh of the reference convex with linear sub-elements, prepared for
+/// piecewise polynomials: the affine map of each sub-element and the
+/// bounding boxes to locate points.
 #[derive(Debug)]
-pub(crate) struct SubMesh {
+pub(crate) struct MeshPrecomposite {
   pub(crate) mesh: MeshData,
   pub(crate) b: Vec<Mat>,
   pub(crate) det: Vec<f64>,
@@ -29,7 +30,7 @@ pub(crate) struct SubMesh {
   boxes: Vec<(Vec<f64>, Vec<f64>, Vec<usize>)>,
 }
 
-impl SubMesh {
+impl MeshPrecomposite {
   pub(crate) fn new(mesh: MeshData) -> Result<Self> {
     let n = mesh.dim();
     let (mut b, mut det, mut org) = (vec![], vec![], vec![]);
@@ -66,7 +67,7 @@ impl SubMesh {
         None => boxes.push((lo, hi, vec![cv])),
       }
     }
-    Ok(SubMesh {
+    Ok(MeshPrecomposite {
       mesh,
       b,
       det,
@@ -156,13 +157,13 @@ impl Piece {
 /// element; missing pieces are zero.
 #[derive(Clone, Debug)]
 pub(crate) struct CompPoly {
-  sub: Arc<SubMesh>,
+  sub: Arc<MeshPrecomposite>,
   local: bool,
   pieces: Vec<Option<Piece>>,
 }
 
 impl CompPoly {
-  pub(crate) fn new(sub: &Arc<SubMesh>, local: bool) -> Self {
+  pub(crate) fn new(sub: &Arc<MeshPrecomposite>, local: bool) -> Self {
     CompPoly {
       sub: sub.clone(),
       local,
@@ -271,7 +272,7 @@ impl CompositeFem {
       Tensor::zeros(&[r, 1, n]),
       Tensor::zeros(&[r, 1, n * n]),
     ];
-    let mut located: Vec<(*const SubMesh, (usize, Vec<f64>))> = vec![];
+    let mut located: Vec<(*const MeshPrecomposite, (usize, Vec<f64>))> = vec![];
     for (i, b) in self.base.iter().enumerate() {
       let key = Arc::as_ptr(&b.sub);
       let at = match located.iter().find(|(k, _)| *k == key) {
@@ -366,8 +367,9 @@ pub(crate) fn comp_of(f: &PFem) -> Result<Arc<CompositeFem>> {
   })
 }
 
-/// Triangles of a sub-mesh given by points and vertex triples.
-fn sub_mesh(pts: &[[f64; 2]], tri: &[[usize; 3]]) -> Result<Arc<SubMesh>> {
+/// The precomposite mesh of the triangles given by points and vertex
+/// triples.
+fn mesh_precomposite(pts: &[[f64; 2]], tri: &[[usize; 3]]) -> Result<Arc<MeshPrecomposite>> {
   let mut m = MeshData::new(2);
   let ids: Vec<usize> = pts
     .iter()
@@ -377,28 +379,28 @@ fn sub_mesh(pts: &[[f64; 2]], tri: &[[usize; 3]]) -> Result<Arc<SubMesh>> {
   for t in tri {
     m.add_convex(&gt, &t.map(|i| ids[i]))?;
   }
-  Ok(Arc::new(SubMesh::new(m)?))
+  Ok(Arc::new(MeshPrecomposite::new(m)?))
 }
 
 /// The triangle split at its barycenter (HCT, P1 piecewise linear bubble).
-pub(crate) fn hct_mesh() -> Result<Arc<SubMesh>> {
+pub(crate) fn hct_mesh() -> Result<Arc<MeshPrecomposite>> {
   let t = 1.0 / 3.0;
-  sub_mesh(
+  mesh_precomposite(
     &[[t, t], [0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
     &[[0, 2, 3], [0, 3, 1], [0, 1, 2]],
   )
 }
 
 /// The square split into 4 triangles at its center (QUADC1).
-pub(crate) fn quadc1_mesh() -> Result<Arc<SubMesh>> {
-  sub_mesh(
+pub(crate) fn quadc1_mesh() -> Result<Arc<MeshPrecomposite>> {
+  mesh_precomposite(
     &[[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0], [0.5, 0.5]],
     &[[1, 3, 4], [2, 0, 4], [3, 2, 4], [0, 1, 4]],
   )
 }
 
 /// The pyramid split into 2 tetrahedra (IM_PYRAMID_COMPOSITE).
-pub(crate) fn pyramid_mesh() -> Result<Arc<SubMesh>> {
+pub(crate) fn pyramid_mesh() -> Result<Arc<MeshPrecomposite>> {
   let mut m = MeshData::new(3);
   let pts = [
     [-1.0, -1.0, 0.0],
@@ -415,11 +417,11 @@ pub(crate) fn pyramid_mesh() -> Result<Arc<SubMesh>> {
   for t in [[0, 1, 2, 4], [1, 3, 2, 4]] {
     m.add_convex(&gt, &t.map(|i| ids[i]))?;
   }
-  Ok(Arc::new(SubMesh::new(m)?))
+  Ok(Arc::new(MeshPrecomposite::new(m)?))
 }
 
-/// Basis functions from GetFEM's strings: function k, sub-element ic in turn.
-fn read_base(sub: &Arc<SubMesh>, nb: usize, s: &str) -> Result<Vec<CompPoly>> {
+/// Basis functions from polynomial strings: function k, sub-element ic in turn.
+fn read_base(sub: &Arc<MeshPrecomposite>, nb: usize, s: &str) -> Result<Vec<CompPoly>> {
   let p = polys(2, s)?;
   let nc = sub.mesh.nb_convexes();
   assert_eq!(p.len(), nb * nc);
@@ -721,7 +723,8 @@ fn refine_simplex(
         for l in 0..k - i {
           let (c, d) = (l as f64 * h, (l + 1) as f64 * h);
           let (pa, pb, pc, pd) = (vec![a, c], vec![b, c], vec![a, d], vec![b, d]);
-          // GetFEM adds the 4 points first
+          // all 4 points, also without the second triangle: GetFEM's point
+          // numbering
           for p in [&pa, &pb, &pc, &pd] {
             m.add_point(&tr(p))?;
           }
@@ -842,11 +845,13 @@ pub(crate) fn structured_mesh_for_convex(cvr: &PRef, k: usize) -> Result<MeshDat
 }
 
 /// Sub-meshes by (convex, k), shared by the elements and integration methods.
-static MESHES: Interner<(String, usize), SubMesh> = Interner::new();
+static MESHES: Interner<(String, usize), MeshPrecomposite> = Interner::new();
 
-pub(crate) fn structured_sub_mesh(cvr: &PRef, k: usize) -> Result<Arc<SubMesh>> {
+pub(crate) fn structured_mesh_precomposite(cvr: &PRef, k: usize) -> Result<Arc<MeshPrecomposite>> {
   let key = (format!("{:?}", cvr.structure().basic()), k);
-  MESHES.get_or_try(&key, || SubMesh::new(structured_mesh_for_convex(cvr, k)?))
+  MESHES.get_or_try(&key, || {
+    MeshPrecomposite::new(structured_mesh_for_convex(cvr, k)?)
+  })
 }
 
 /// pf on each sub-element of the k-refined reference convex
@@ -866,7 +871,7 @@ pub(crate) fn structured_composite(pf: &PFem, k: usize) -> Result<PFem> {
         "{name}: scalar polynomial tau-equivalent elements only"
       )));
     }
-    let sub = structured_sub_mesh(pf.ref_convex(), k)?;
+    let sub = structured_mesh_precomposite(pf.ref_convex(), k)?;
     let mesh = Mesh::from(sub.mesh.clone());
     let mf = crate::mesh_fem::MeshFem::new(&mesh, 1).with_finite_element(&pf)?;
     let num = mf.numbering()?;
@@ -896,7 +901,7 @@ pub(crate) fn structured_composite(pf: &PFem, k: usize) -> Result<PFem> {
   })
 }
 
-/// GetFEM thierach_femi_comp: f1 and the functions of f2 at new DOFs.
+/// Hierarchical composite element: f1 and the functions of f2 at new DOFs.
 fn gen_hierarchical_comp(name: String, f1: &PFem, f2: &PFem) -> Result<PFem> {
   let (p1, p2) = (comp_of(f1)?, comp_of(f2)?);
   cached(name, |name| {
@@ -968,9 +973,9 @@ pub(crate) fn pk_hierarchical_composite(n: usize, k: usize, s: usize, full: bool
 
 // ------------------------------------------------------ refined simplex mesh
 
-/// A convex split into simplices, each refined k times (GetFEM
-/// refined_simplex_mesh_for_convex, for slices): points in the reference
-/// convex, simplices, and per face of the convex the sub-faces on it.
+/// A convex split into simplices, each refined k times (for slices):
+/// points in the reference convex, simplices, and per face of the convex
+/// the sub-faces on it.
 #[derive(Debug)]
 pub struct RefinedSimplexMesh {
   pub points: Vec<Vec<f64>>,

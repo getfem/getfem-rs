@@ -1,4 +1,4 @@
-//! Columns spanning the range of a sparse matrix (role of gmm::range_basis):
+//! Columns spanning the range of a sparse matrix:
 //! column-pivoted modified Gram-Schmidt on the normalized columns
 //! themselves (not on their Gram matrix, which squares the conditioning),
 //! per group of columns connected through shared rows.

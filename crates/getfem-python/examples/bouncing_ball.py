@@ -58,7 +58,7 @@ def simulate(nsubdiv, lift, dt, t_end, on_step):
   md.add_macro("acc", "(u - pred)/(beta*dt*dt)")
   md.add_nonlinear_term(mim, "acc.Test_u + (clambda*Div_u*Id(2) + 2*cmu*Sym(Grad_u)):Grad_Test_u"
                              " - load.Test_u")
-  md.add_nonlinear_term(mimc, "r*sqr(neg_part(X(2) + u(2)))", CONTACT)
+  md.add_nonlinear_term(mimc, "r*sqr_neg_part(X(2) + u(2))", CONTACT)
 
   area = gf.asm_generic(mim, 0, "1", -1, md)
   def record(t, iterations):

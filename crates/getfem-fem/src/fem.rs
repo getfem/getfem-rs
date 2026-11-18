@@ -57,7 +57,7 @@ impl DdlElem {
 }
 
 /// A new range of 1000 xfem indices for the DOFs of an enriched space
-/// (GetFEM's reserve_xfem_index: 1100, 2100, ...).
+/// (1100, 2100, ...).
 pub fn reserve_xfem_index() -> usize {
   static IND: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(100);
   IND.fetch_add(1000, std::sync::atomic::Ordering::Relaxed) + 1000
@@ -105,14 +105,14 @@ impl DofDesc {
     }
   }
 
-  /// Derivative in direction k (GetFEM derivative_dof).
+  /// Derivative in direction k.
   pub fn derivative(n: usize, k: usize) -> Self {
     let mut d = Self::lagrange(n);
     d.ddl[k] = DdlElem::of(DdlType::Derivative);
     d
   }
 
-  /// Second derivative in directions k1, k2 (GetFEM second_derivative_dof).
+  /// Second derivative in directions k1, k2.
   pub fn second_derivative(n: usize, k1: usize, k2: usize) -> Self {
     let mut d = Self::lagrange(n);
     d.ddl[k1] = DdlElem::of(DdlType::SecondDerivative);
@@ -132,7 +132,7 @@ impl DofDesc {
     Self::uniform(n, DdlType::EdgeComponent)
   }
 
-  /// Component m of a vector Lagrange DOF (GetFEM to_coord_dof).
+  /// Component m of a vector Lagrange DOF.
   pub fn coord(n: usize, m: usize) -> Self {
     DofDesc {
       coord_index: m,
@@ -140,27 +140,26 @@ impl DofDesc {
     }
   }
 
-  /// Interior DOF k at the element center (GetFEM ipk_center_dof).
+  /// Interior DOF k at the element center.
   pub fn ipk_center(n: usize, k: usize) -> Self {
     let mut d = Self::uniform(n, DdlType::IpkCenter);
     d.ddl.iter_mut().for_each(|e| e.spec = k);
     d
   }
 
-  /// Bubble DOF (GetFEM bubble1_dof).
+  /// Bubble DOF.
   pub fn bubble1(n: usize) -> Self {
     Self::uniform(n, DdlType::Bubble1)
   }
 
-  /// The DOF with a hierarchical degree (GetFEM deg_hierarchical_dof).
+  /// The DOF with a hierarchical degree.
   pub(crate) fn with_hier_degree(&self, deg: usize) -> Self {
     let mut d = self.clone();
     d.ddl.iter_mut().for_each(|e| e.hier_degree = deg as i16);
     d
   }
 
-  /// GetFEM's dof_hierarchical_compatibility: same kinds, ignoring the
-  /// hierarchical degrees.
+  /// Same kinds, ignoring the hierarchical degrees.
   pub(crate) fn hierarchical_compatible(&self, o: &Self) -> bool {
     if self.coord_index != o.coord_index
       || self.linkable != o.linkable
@@ -202,8 +201,8 @@ impl DofDesc {
     }
   }
 
-  /// The same DOF with the xfem index ind (GetFEM's xfem_dof): distinct
-  /// from the DOFs of other indices at the same node.
+  /// The same DOF with the xfem index ind: distinct from the DOFs of other
+  /// indices at the same node.
   pub fn xfem_dof(&self, ind: usize) -> DofDesc {
     DofDesc {
       xfem_index: ind,
@@ -211,7 +210,7 @@ impl DofDesc {
     }
   }
 
-  /// GetFEM's dof_weak_compatibility (missing trailing entries are Lagrange).
+  /// Weak comparison (missing trailing entries are Lagrange).
   fn weak_cmp(&self, o: &Self) -> Ordering {
     for (a, b) in self.ddl.iter().zip(&o.ddl) {
       let c = a.t.cmp(&b.t).then(a.hier_degree.cmp(&b.hier_degree));
@@ -242,9 +241,9 @@ impl DofDesc {
 
 // ------------------------------------------------------------ element trait
 
-/// A finite element on a reference convex. Values are tensors
-/// [nb_base, target_dim], gradients [nb_base, target_dim, dim], Hessians
-/// [nb_base, target_dim, dim * dim] (column-major, GetFEM's base_tensor layout).
+/// A finite element on a reference convex. Values are tensors [nb_base,
+/// target_dim], gradients [nb_base, target_dim, dim], Hessians [nb_base,
+/// target_dim, dim * dim] (column-major, GetFEM's base_tensor layout).
 pub trait Fem: Send + Sync + fmt::Debug {
   fn name(&self) -> &str;
   fn ref_convex(&self) -> &PRef;
@@ -271,7 +270,7 @@ pub trait Fem: Send + Sync + fmt::Debug {
   fn hess_base_value(&self, xref: &[f64]) -> Result<Tensor<f64>>;
   /// The element matrix M_T (nb_dof x nb_base) of a real element with
   /// nodes g (N x nb_points of pgt): phi_i = sum_j M_ij phi_ref_j after the
-  /// reference-to-real mapping (GetFEM mat_trans). None if tau-equivalent.
+  /// reference-to-real mapping. None if tau-equivalent.
   fn mat_trans(&self, _g: &Tensor<f64>, _pgt: &PGeoTrans) -> Result<Option<Tensor<f64>>> {
     Ok(None)
   }
@@ -279,13 +278,12 @@ pub trait Fem: Send + Sync + fmt::Debug {
   fn vectorial(&self) -> Vectorial {
     Vectorial::None
   }
-  /// Global index of each DOF (GetFEM index_of_global_dof), for elements
-  /// whose DOFs are global DOFs.
+  /// Global index of each DOF, for elements whose DOFs are global DOFs.
   fn global_dofs(&self) -> Option<&[usize]> {
     None
   }
   /// Defined on the real element only (interpolated elements, global
-  /// functions; GetFEM real_element_defined).
+  /// functions).
   fn real_element_defined(&self) -> bool {
     false
   }
@@ -298,8 +296,7 @@ pub trait Fem: Send + Sync + fmt::Debug {
       self.name()
     )))
   }
-  /// The interior element of an HHO element (GetFEM
-  /// interior_fem_of_hho_method); None for other elements.
+  /// The interior element of an HHO element; None for other elements.
   fn hho_interior(&self) -> Option<PFem> {
     None
   }
@@ -333,7 +330,7 @@ pub struct FemCtx<'a> {
   /// the id of the level set the point is on (`LevelSet::id`), 0 none
   pub xfem_ls: usize,
   /// xref as point ip of an integration method: the base elements' values
-  /// from their fem_precomp on it (GetFEM pfp, ii)
+  /// from their fem_precomp on it
   pub pim: Option<(&'a crate::integration::PIntegration, usize)>,
 }
 
@@ -393,9 +390,8 @@ pub struct PolyFem {
   pub(crate) vectorial: Vectorial,
 }
 
-/// How the components of a vector element map to the real element
-/// (GetFEM vectorial_type): unchanged, with K (primal: Raviart-Thomas),
-/// with B (dual: Nedelec).
+/// How the components of a vector element map to the real element:
+/// unchanged, with K (primal: Raviart-Thomas), with B (dual: Nedelec).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Vectorial {
   None,
@@ -612,7 +608,7 @@ pub(crate) fn cached(name: String, build: impl FnOnce(String) -> Result<PolyFem>
   Ok(CACHE.get_or_try(&name.clone(), || build(name))? as PFem)
 }
 
-/// Lagrange basis function of reference node noderef of the degree-k simplex (GetFEM PK_fem_).
+/// Lagrange basis function of reference node noderef of the degree-k simplex.
 pub(crate) fn pk_basis(n: usize, k: usize, noderef: &[f64]) -> Poly {
   let one = Poly::one(n);
   if k == 0 {
@@ -644,7 +640,7 @@ pub(crate) fn pk_basis(n: usize, k: usize, noderef: &[f64]) -> Poly {
   p
 }
 
-/// GetFEM's %g formatting of the alpha parameter.
+/// %g formatting of the alpha parameter (in element names).
 fn fmt_g(v: f64) -> String {
   let s = format!("{v}");
   if s.len() > 8 {
@@ -707,8 +703,7 @@ pub fn pk(n: usize, k: usize, disc: Option<f64>) -> Result<PFem> {
     let mut nodesref = cvn.points().to_vec();
     let mut base: Vec<Poly> = nodesref.iter().map(|xref| pk_basis(n, k, xref)).collect();
     // the faces of the conforming DOFs (P0: on every face), from the
-    // undeformed nodes; then the discontinuous DOF type (GetFEM PK_fem_,
-    // then PK_discont_ replaces dof_types_)
+    // undeformed nodes; then the discontinuous DOF type
     let conforming = if k == 0 {
       DofDesc::lagrange_0(n)
     } else {
@@ -738,7 +733,7 @@ pub fn pk(n: usize, k: usize, disc: Option<f64>) -> Result<PFem> {
 
 /// Tensor product, first factor fastest (GetFEM tproduct_femi).
 /// Canonical names: chains of 1D Lagrange factors are FEM_QK, a simplex
-/// times a segment is FEM_PK_PRISM (as GetFEM names them).
+/// times a segment is FEM_PK_PRISM.
 fn product_name(a: &str, b: &str) -> String {
   let parse = |s: &str| Descriptor::parse(s).ok();
   if let (Some(da), Some(db)) = (parse(a), parse(b)) {
@@ -821,7 +816,7 @@ pub fn prism_pk(n: usize, k: usize, disc: Option<f64>) -> Result<PFem> {
     0 | 1 => Err(Error::InvalidArgument(
       "FEM_PRISM_PK: dimension >= 2".into(),
     )),
-    // a 2D prism is the product of two segments (GetFEM 66c9a5b9)
+    // a 2D prism is the product of two segments
     2 => qk(2, k, disc),
     _ => product(&pk(n - 1, k, disc)?, &pk(1, k, disc)?),
   }
@@ -983,7 +978,7 @@ fn resolve(d: &Descriptor) -> Result<PFem> {
     "PRISM_INCOMPLETE_P2_DISCONTINUOUS" => prism_incomplete_p2(true),
     "PYRAMID_Q2_INCOMPLETE" => pyramid_q2_incomplete(false),
     "PYRAMID_Q2_INCOMPLETE_DISCONTINUOUS" => pyramid_q2_incomplete(true),
-    // GetFEM: degree 2 by default
+    // degree 2 by default
     "PYRAMID_QK" | "PYRAMID_LAGRANGE" if d.params.is_empty() => pyramid_qk(2, None),
     "PYRAMID_QK" | "PYRAMID_LAGRANGE" => pyramid_qk(d.ints(1)?[0], None),
     "PYRAMID_QK_DISCONTINUOUS" | "PYRAMID_DISCONTINUOUS_LAGRANGE" => {
@@ -1108,14 +1103,13 @@ fn resolve(d: &Descriptor) -> Result<PFem> {
   }
 }
 
-/// The Lagrange element of degree k for the elements of pgt (GetFEM
-/// classical_fem / classical_discontinuous_fem).
+/// The Lagrange element of degree k for the elements of pgt.
 pub fn classical_fem(pgt: &PGeoTrans, k: usize, disc: bool) -> Result<PFem> {
   classical_fem_alpha(pgt, k, disc.then_some(0.0))
 }
 
-/// classical_fem, discontinuous with GetFEM's alpha (the nodes moved
-/// toward the barycenter) if al is some.
+/// classical_fem, discontinuous with alpha (the nodes moved toward the
+/// barycenter) if al is some.
 pub(crate) fn classical_fem_alpha(pgt: &PGeoTrans, k: usize, al: Option<f64>) -> Result<PFem> {
   use getfem_geom::convex_structure as cs;
   let basic = pgt.basic_structure();
@@ -1150,14 +1144,13 @@ pub(crate) fn classical_fem_alpha(pgt: &PGeoTrans, k: usize, al: Option<f64>) ->
 }
 
 /// Values, gradients and Hessians of the basis functions on a real
-/// element with nodes g (N x nb_points of pgt) at reference point xref, as
-/// GetFEM's fem_interpolation_context: val[i + nd*a], grad[i + nd*(a +
-/// T*r)], hess[i + nd*(a + T*(r + N*s))] (a: component of vector elements,
-/// mapped with K or B); the element matrix M_T applied last. As GetFEM, the
-/// variation of K within the element is not differentiated, and the
-/// curvature correction of Hessians uses the reference components.
-/// Derivatives up to order der only (GetFEM computes each on demand); the
-/// others empty.
+/// element with nodes g (N x nb_points of pgt) at reference point xref:
+/// val[i + nd*a], grad[i + nd*(a + T*r)], hess[i + nd*(a + T*(r + N*s))]
+/// (a: component of vector elements, mapped with K or B); the element
+/// matrix M_T applied last. The variation of K within the element is not
+/// differentiated, and the curvature correction of Hessians uses the
+/// reference components. Derivatives up to order der only; the others
+/// empty.
 pub fn real_base_values(
   pf: &PFem,
   pgt: &PGeoTrans,
@@ -1189,7 +1182,7 @@ pub fn real_base_values_at(pf: &PFem, fc: &FemCtx, der: usize) -> Result<RealVal
     }
   };
   let (nb, t) = (pf.nb_base(), pf.target_dim());
-  // standard elements (GetFEM is_standard: scalar, equivalent): the
+  // standard elements (scalar, equivalent): the
   // values, the gradients B g
   if der <= 1 && t == 1 && pf.is_equivalent() && matches!(pf.vectorial(), Vectorial::None) {
     let val = v.data().to_vec();
@@ -1301,7 +1294,7 @@ pub fn real_base_values_at(pf: &PFem, fc: &FemCtx, der: usize) -> Result<RealVal
         .map(|jk| {
           let src = |i: usize, b: usize| hr.data()[i + nb * (b + t * jk)];
           let h = comp(&src, i, a);
-          // curvature correction with the reference component a (GetFEM)
+          // curvature correction with the reference component a
           let ac = a.min(t - 1);
           h - (0..n)
             .map(|l| htau[l][jk] * g1[i + nb * (ac + t * l)])

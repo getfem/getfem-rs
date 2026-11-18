@@ -12,8 +12,7 @@ use crate::fem::{DofDesc, Fem, FemCtx, PFem, RealValues, real_base_values_at};
 use crate::mesh_fem::MeshFem;
 use crate::{Error, Result};
 
-/// The element of a convex where several spaces have functions (GetFEM
-/// fem_sum).
+/// The element of a convex where several spaces have functions.
 #[derive(Debug)]
 struct FemSum {
   name: String,
@@ -130,9 +129,9 @@ impl Fem for FemSum {
 }
 
 impl MeshFem {
-  /// The sum of the spaces mfs (GetFEM mesh_fem_sum): on each convex the
-  /// functions of each space that has some there. The spaces of qdim 1,
-  /// not reduced; built from their current state.
+  /// The sum of the spaces mfs: on each convex the functions of each space that
+  /// has some there. The spaces of qdim 1, not reduced; built from their
+  /// current state.
   pub fn from_sum(mfs: &[&MeshFem]) -> Result<MeshFem> {
     let Some(first) = mfs.first() else {
       return Err(Error::InvalidArgument("mesh_fem_sum: no mesh_fem".into()));

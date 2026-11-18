@@ -26,21 +26,19 @@ pub struct GlobalFunctionFem {
   dofs: Vec<DofDesc>,
   nodes: Vec<Vec<f64>>,
   faces: Vec<Vec<usize>>,
-  /// the indices of its functions (GetFEM index_of_global_dof)
+  /// the indices of its functions
   global: Vec<usize>,
   /// its convex
   cv: usize,
   funcs: Arc<Vec<GlobalFunction>>,
   /// its mesh, whose geometry the precomputed values are valid for
   mesh: Mesh,
-  /// the values at the points of the integration methods met (GetFEM
-  /// precomps)
+  /// the values at the points of the integration methods met
   precomps: Mutex<Vec<Arc<Precomp>>>,
 }
 
 /// The values (0), gradients (1) and Hessians (2) of the functions at the
 /// points of an integration method, each computed when first asked
-/// (GetFEM precomp_data)
 struct Precomp {
   pim: PIntegration,
   /// the geometry version of the mesh, the newest version of the
@@ -134,8 +132,7 @@ impl Fem for GlobalFunctionFem {
 
 impl GlobalFunctionFem {
   /// the values (d = 0), gradients (1) or Hessians (2) of its functions at
-  /// the point of c: [i], [i + nd r], [i + nd (r + n s)] (GetFEM
-  /// real_base_value, real_grad_base_value, real_hess_base_value)
+  /// the point of c: [i], [i + nd r], [i + nd (r + n s)]
   fn real_base_value(&self, c: &FemCtx, d: usize) -> Vec<f64> {
     let (nd, n) = (self.global.len(), c.x.len());
     let p = EvalPoint {
@@ -157,8 +154,7 @@ impl GlobalFunctionFem {
   }
 
   /// the precomputed values at the points of pim, for the current geometry
-  /// of the mesh and context of the functions (GetFEM: cleared by
-  /// update_from_context)
+  /// of the mesh and context of the functions
   fn precomp(&self, pim: &PIntegration) -> Result<Arc<Precomp>> {
     let fv = self.global.iter().map(|&i| self.funcs[i].version());
     let version = (self.mesh.geometry_version(), fv.max().unwrap_or(0));
@@ -205,8 +201,7 @@ fn convex_box(g: &Tensor<f64>, linear: bool) -> (Vec<f64>, Vec<f64>) {
 }
 
 impl MeshFem {
-  /// The space of the global functions funcs on mesh (GetFEM
-  /// mesh_fem_global_function::set_functions): on each convex, the
+  /// The space of the global functions funcs on mesh: on each convex, the
   /// functions whose bounding box meets it, and with mim, whose support
   /// contains one of its integration points. Built from the current mesh
   /// and mim: build it again after they change.
@@ -237,9 +232,8 @@ impl MeshFem {
       }
       None => None,
     };
-    // equal boxes share one entry, whose functions are listed in order:
-    // GetFEM's rtree::add_box merges corners closer than max(1e-13,
-    // max|x| 1e4 eps) (bgeot::node_tab)
+    // equal boxes (corners within 1e-13) share one entry, whose functions
+    // are listed in order
     let mut tree = RTree::new(dim, 1e-13);
     let mut boxes: Vec<(Vec<f64>, Vec<f64>, Vec<usize>)> = vec![];
     // the boxes by their first min coordinate (ordered bits)
@@ -288,7 +282,7 @@ impl MeshFem {
         ));
       }
       let (lo, hi) = convex_box(&g, gt.is_linear());
-      // the boxes in the order of their ids (GetFEM pbox_set)
+      // the boxes in the order of their ids
       let mut global = vec![];
       let pts = match &ims {
         Some(l) => {
@@ -327,7 +321,7 @@ impl MeshFem {
 }
 
 /// The boundary conditions of a uniform B-spline basis at one end of a
-/// direction (GetFEM bspline_boundary).
+/// direction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BsplineBoundary {
   Free,
@@ -337,8 +331,7 @@ pub enum BsplineBoundary {
   Symmetry,
 }
 
-/// One direction of a uniform basis: per function min, max, shift, type
-/// (GetFEM params_for_uniform_1d_bspline_basis_functions).
+/// One direction of a uniform basis: per function min, max, shift, type.
 type Params1d = Vec<(f64, f64, f64, usize)>;
 
 fn params_1d(
@@ -412,8 +405,7 @@ fn params_1d(
 impl MeshFem {
   /// The uniform B-spline basis of order 3 to 5 on n[k] intervals in
   /// each direction k of the bounding box of mesh, with the boundary
-  /// conditions low[k], high[k] (GetFEM
-  /// define_uniform_bspline_basis_functions_for_mesh_fem, 1D to 3D).
+  /// conditions low[k], high[k] (1D to 3D).
   /// Periodic and symmetric functions are sums of the shifted B-splines.
   pub fn uniform_bspline(
     mesh: &Mesh,
@@ -457,7 +449,7 @@ impl MeshFem {
       let types: Vec<usize> = par.iter().map(|p| p.3).collect();
       let shifted: Vec<bool> = par.iter().map(|p| p.2.abs() >= 1e-10).collect();
       // the unshifted function, then each nonempty subset of the shifted
-      // directions shifted (GetFEM's order: x, y, z, xy, yz, zx, xyz)
+      // directions shifted (order: x, y, z, xy, yz, zx, xyz)
       let mut subsets: Vec<Vec<usize>> = vec![vec![]];
       let s: Vec<usize> = (0..dim).filter(|&k| shifted[k]).collect();
       subsets.extend(s.iter().map(|&k| vec![k]));

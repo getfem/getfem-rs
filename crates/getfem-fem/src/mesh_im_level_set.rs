@@ -148,8 +148,8 @@ impl MeshImLevelSet {
     self.mim.set_integration_method(arg)
   }
 
-  /// The rules on the sub-simplices of the cut elements (GetFEM
-  /// set_simplex_im(reg, sing), with tau):
+  /// The rules on the sub-simplices of the cut elements (tau not in
+  /// GetFEM):
   /// - reg on each sub-simplex (3D, and 2D at cracks; default: the regular
   ///   method where it is a simplex rule), by the sub-simplex's size s
   ///   (longest edge, the element's reference size 1): the lowest degree

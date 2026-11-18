@@ -150,7 +150,7 @@ impl<T: Scalar> Csr<T> {
     )
   }
 
-  /// self b (gmm::mult of sparse matrices; rows by sparse accumulation)
+  /// self b (rows by sparse accumulation)
   pub fn mul(&self, b: &Csr<T>) -> Result<Csr<T>> {
     if self.ncols != b.nrows {
       return Err(Error::InvalidArgument(format!(

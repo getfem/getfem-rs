@@ -9,12 +9,12 @@
 //! space are tied to its value stamp, which changes when the numbering or
 //! the geometry (points, convexes) changes.
 //!
-//! Reduction and extension matrices (GetFEM set_reduction_matrices): the
+//! Reduction and extension matrices (set_reduction_matrices): the
 //! DOFs of a reduced space are DOFs = R basic, basic = E DOFs (R E = I),
 //! general linear maps (a selection, or a square transform of the basic
 //! DOFs such as a rotation of the components). A partial space is the
 //! reduction by a selection (a pair of matrices of ones), composed with
-//! the reduction of its base, as GetFEM's partial_mesh_fem.
+//! the reduction of its base.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -155,14 +155,14 @@ impl DofNumbering {
 }
 
 /// Reduction and extension matrices of a space: DOFs = r (basic DOFs),
-/// basic = e (DOFs), r e = I (GetFEM reduction_matrix, extension_matrix).
+/// basic = e (DOFs), r e = I.
 #[derive(Debug)]
 pub struct Reduction {
   /// R; None: not stored, reduce by least squares (ls)
   pub r: Option<Csr<f64>>,
   ls: Option<LeastSquares>,
   pub e: Csr<f64>,
-  /// E by columns (its transpose; gmm stores E as a col_matrix): the
+  /// E by columns (its transpose): the
   /// extension and the folds touch only its nonzeros
   pub et: Csr<f64>,
   /// the numbering they were set for
@@ -192,16 +192,15 @@ impl MfDofs {
     }
   }
 
-  /// Values on the basic DOFs from values on the DOFs (GetFEM
-  /// extend_vector: E per component when v has q values per DOF,
-  /// interleaved).
+  /// Values on the basic DOFs from values on the DOFs (E per component
+  /// when v has q values per DOF, interleaved).
   pub fn extend_vector(&self, v: &[f64]) -> Result<Vec<f64>> {
     let (nd, nb) = (self.nb_dof(), self.numbering.nb_basic_dof());
     let q = per_dof(v.len(), nd)?;
     let Some(r) = &self.red else {
       return Ok(v.to_vec());
     };
-    // by the columns of E (gmm::mult of a col_matrix)
+    // by the columns of E
     let mut out = vec![0.0; nb * q];
     for j in 0..nd {
       for (d, x) in r.et.row(j) {
@@ -213,8 +212,7 @@ impl MfDofs {
     Ok(out)
   }
 
-  /// Values on the DOFs from values on the basic DOFs (GetFEM
-  /// reduce_vector: R per component).
+  /// Values on the DOFs from values on the basic DOFs (R per component).
   pub fn reduce_vector(&self, v: &[f64]) -> Result<Vec<f64>> {
     let (nd, nb) = (self.nb_dof(), self.numbering.nb_basic_dof());
     let q = per_dof(v.len(), nb)?;
@@ -232,7 +230,7 @@ impl MfDofs {
       }
       return Ok(out);
     };
-    // by the rows of R (gmm::mult of a row_matrix)
+    // by the rows of R
     let mut out = vec![0.0; nd * q];
     for i in 0..nd {
       for (j, x) in r.row(i) {
@@ -378,7 +376,7 @@ fn selection(kept: &[usize], n: usize) -> Csr<f64> {
 /// Elements for the convexes without an explicit one.
 #[derive(Clone, Debug)]
 enum Rule {
-  /// alpha: discontinuous (with GetFEM's alpha), or continuous
+  /// alpha: discontinuous (with alpha), or continuous
   Classical {
     k: usize,
     alpha: Option<f64>,
@@ -536,7 +534,7 @@ struct Inner {
   /// changes with every setting
   config: u64,
   kept: Option<Kept>,
-  /// reduction matrices, applied or not (GetFEM use_reduction)
+  /// reduction matrices, applied or not
   red: Option<Arc<Reduction>>,
   use_red: bool,
   cache: Mutex<Option<Arc<DofNumbering>>>,
@@ -559,7 +557,7 @@ impl Clone for Inner {
   }
 }
 
-/// A finite element space on a mesh (GetFEM mesh_fem), as a shared handle.
+/// A finite element space on a mesh, as a shared handle.
 #[derive(Clone, Debug)]
 pub struct MeshFem(Shared<Inner>);
 
@@ -640,8 +638,8 @@ impl MeshFem {
     })
   }
 
-  /// GetFEM's set_qdim: a number of components (`2`) or a tensor shape
-  /// (`[3, 3]`, qdim the product).
+  /// A number of components (`2`) or a tensor shape (`[3, 3]`, qdim the
+  /// product).
   pub fn set_qdim(&self, arg: impl QdimArg) {
     self.set_shape(&arg.shape());
   }
@@ -653,42 +651,14 @@ impl MeshFem {
     });
   }
 
-  /// GetFEM's set_finite_element, its two forms by the argument: the
-  /// element everywhere (`&pf`, also on convexes added later) or on given
-  /// convexes (`(cvs, &pf)`).
+  /// The element everywhere (`&pf`, also on convexes added later), on
+  /// given convexes (`(cvs, &pf)`), or removed from them (`(cvs, None)`).
   pub fn set_finite_element(&self, arg: impl FiniteElementArg) -> Result<()> {
     arg.apply(self)
   }
 
-  /// The element pf on the given convexes.
-  fn set_fem_on(&self, cvs: impl IntoIterator<Item = usize>, pf: &PFem) -> Result<()> {
-    let m = self.linked_mesh().snapshot();
-    let qdim = self.qdim();
-    let cvs: Vec<usize> = cvs.into_iter().collect();
-    for &cv in &cvs {
-      check_fit(&m, cv, pf, qdim)?;
-    }
-    self.modify(|s| {
-      for cv in cvs {
-        s.fems.insert(cv, Some(pf.clone()));
-      }
-      Ok(())
-    })
-  }
-
-  /// No element on the convexes cvs (GetFEM set_finite_element(cv, 0)).
-  fn remove_fem_on(&self, cvs: impl IntoIterator<Item = usize>) -> Result<()> {
-    let cvs: Vec<usize> = cvs.into_iter().collect();
-    self.modify(|s| {
-      for cv in cvs {
-        s.fems.insert(cv, None);
-      }
-      Ok(())
-    })
-  }
-
-  /// The DOF partition of convex cv (GetFEM set_dof_partition): DOFs are
-  /// shared only between convexes of the same partition.
+  /// The DOF partition of convex cv: DOFs are shared only between convexes of
+  /// the same partition.
   pub fn set_dof_partition(&self, cv: usize, partition: u32) -> Result<()> {
     self.modify(|s| {
       if partition == 0 {
@@ -700,19 +670,9 @@ impl MeshFem {
     })
   }
 
-  /// The DOF partition of convex cv (GetFEM get_dof_partition).
+  /// The DOF partition of convex cv.
   pub fn dof_partition(&self, cv: usize) -> u32 {
     self.0.snapshot().partition.get(&cv).copied().unwrap_or(0)
-  }
-
-  /// The element pf everywhere, also on convexes added later.
-  fn set_fem_all(&self, pf: &PFem) -> Result<()> {
-    let m = self.linked_mesh().snapshot();
-    let qdim = self.qdim();
-    for cv in m.convex_index() {
-      check_fit(&m, cv, pf, qdim)?;
-    }
-    self.set_rule(Rule::Fem(pf.clone()))
   }
 
   /// Lagrange elements of degree k on every element, also on convexes
@@ -722,8 +682,7 @@ impl MeshFem {
   }
 
   /// Discontinuous Lagrange elements of degree k on every element: `k`,
-  /// or `(k, alpha)` with the nodes moved toward the barycenter by alpha
-  /// (GetFEM's alpha).
+  /// or `(k, alpha)` with the nodes moved toward the barycenter by alpha.
   pub fn set_classical_discontinuous_finite_element(
     &self,
     arg: impl DiscontinuousArg,
@@ -843,13 +802,12 @@ impl MeshFem {
     Ok(Some(r.clone()))
   }
 
-  /// Reduction and extension matrices (GetFEM set_reduction_matrices):
-  /// DOFs = r (basic DOFs), basic DOFs = e (DOFs), r e = I (checked).
-  /// r None ("auto"): r the least squares (E' E)^-1 E', stored when E' E
-  /// is diagonal (no two columns of E share a row: a selection, plain
-  /// periodicity), otherwise not stored, each reduce solving E' E q = E' b
-  /// (CG, with an info line). Applied from now on; valid for the current
-  /// numbering (set them again when the mesh or the elements change).
+  /// Reduction and extension matrices: DOFs = r (basic DOFs), basic DOFs = e
+  /// (DOFs), r e = I (checked). r None ("auto"): r the least squares (E' E)^-1
+  /// E', stored when E' E is diagonal (no two columns of E share a row: a
+  /// selection, plain periodicity), otherwise not stored, each reduce solving
+  /// E' E q = E' b (CG, with an info line). Applied from now on; valid for the
+  /// current numbering (set them again when the mesh or the elements change).
   pub fn set_reduction_matrices(&self, r: Option<&Csr<f64>>, e: &Csr<f64>) -> Result<()> {
     if self.is_partial() {
       return Err(Error::InvalidArgument(
@@ -892,8 +850,7 @@ impl MeshFem {
     })
   }
 
-  /// The basic DOFs kept (GetFEM reduce_to_basic_dof): R the selection,
-  /// E its transpose.
+  /// The basic DOFs kept: R the selection, E its transpose.
   pub fn reduce_to_basic_dof(&self, kept: &BTreeSet<usize>) -> Result<()> {
     let nb = self.nb_basic_dof()?;
     if let Some(&d) = kept.iter().find(|&&d| d >= nb) {
@@ -906,7 +863,7 @@ impl MeshFem {
     self.set_reduction_matrices(Some(&r), &r.transpose())
   }
 
-  /// Apply or not the reduction matrices set (GetFEM set_reduction).
+  /// Apply or not the reduction matrices set.
   pub fn set_reduction(&self, on: bool) -> Result<()> {
     let s = self.0.snapshot();
     if on && s.red.is_none() {
@@ -964,7 +921,7 @@ impl MeshFem {
   }
 
   /// The DOFs are not the basic DOFs: reduction matrices applied, or a
-  /// partial space (GetFEM is_reduced).
+  /// partial space.
   pub fn is_reduced(&self) -> bool {
     let s = self.0.snapshot();
     s.kept.is_some() || (s.use_red && s.red.is_some())
@@ -1104,14 +1061,14 @@ impl MeshFem {
     self.0.snapshot().kept.is_some()
   }
 
-  /// Values on the basic DOFs from values on the DOFs, E v (GetFEM's;
-  /// zero where not kept for a partial space).
+  /// Values on the basic DOFs from values on the DOFs, E v (zero where
+  /// not kept for a partial space).
   pub fn extend_vector(&self, v: &[f64]) -> Result<Vec<f64>> {
     self.dofs()?.extend_vector(v)
   }
 
-  /// Values on the DOFs from values on the basic DOFs, R v (GetFEM's;
-  /// least squares when R is not stored).
+  /// Values on the DOFs from values on the basic DOFs, R v (least squares
+  /// when R is not stored).
   pub fn reduce_vector(&self, v: &[f64]) -> Result<Vec<f64>> {
     self.dofs()?.reduce_vector(v)
   }
@@ -1140,7 +1097,7 @@ fn check_fit(m: &MeshData, cv: usize, pf: &PFem, qdim: usize) -> Result<()> {
   Ok(())
 }
 
-/// GetFEM's mesh_fem::enumerate_dof.
+/// The DOF enumeration.
 fn enumerate(
   m: &MeshData,
   fems: &[Option<PFem>],
@@ -1246,35 +1203,53 @@ fn enumerate(
   }
 }
 
-/// The forms of MeshFem::set_finite_element (GetFEM's overloads).
+/// The forms of MeshFem::set_finite_element.
 pub trait FiniteElementArg {
   fn apply(self, mf: &MeshFem) -> Result<()>;
 }
 
+/// `&pf`: the element pf everywhere, also on convexes added later.
 impl FiniteElementArg for &PFem {
   fn apply(self, mf: &MeshFem) -> Result<()> {
-    mf.set_fem_all(self)
+    let m = mf.linked_mesh().snapshot();
+    let qdim = mf.qdim();
+    for cv in m.convex_index() {
+      check_fit(&m, cv, self, qdim)?;
+    }
+    mf.set_rule(Rule::Fem(self.clone()))
   }
 }
 
+/// `(cvs, &pf)`: the element pf on the convexes cvs.
 impl<I: IntoIterator<Item = usize>> FiniteElementArg for (I, &PFem) {
   fn apply(self, mf: &MeshFem) -> Result<()> {
-    mf.set_fem_on(self.0, self.1)
+    (self.0, Some(self.1)).apply(mf)
   }
 }
 
-/// `(cvs, None)` removes the elements of cvs (GetFEM: a null pfem).
+/// `(cvs, Some(&pf))` as `(cvs, &pf)`; `(cvs, None)` removes the elements
+/// of cvs (GetFEM: a null pfem).
 impl<I: IntoIterator<Item = usize>> FiniteElementArg for (I, Option<&PFem>) {
   fn apply(self, mf: &MeshFem) -> Result<()> {
-    match self.1 {
-      Some(pf) => mf.set_fem_on(self.0, pf),
-      None => mf.remove_fem_on(self.0),
+    let cvs: Vec<usize> = self.0.into_iter().collect();
+    if let Some(pf) = self.1 {
+      let m = mf.linked_mesh().snapshot();
+      let qdim = mf.qdim();
+      for &cv in &cvs {
+        check_fit(&m, cv, pf, qdim)?;
+      }
     }
+    mf.modify(|s| {
+      for cv in cvs {
+        s.fems.insert(cv, self.1.cloned());
+      }
+      Ok(())
+    })
   }
 }
 
-/// The forms of MeshFem::set_classical_discontinuous_finite_element
-/// (GetFEM's overloads): a degree, or a degree and alpha.
+/// The forms of MeshFem::set_classical_discontinuous_finite_element: a degree,
+/// or a degree and alpha.
 pub trait DiscontinuousArg {
   fn degree_alpha(&self) -> (usize, f64);
 }
@@ -1291,8 +1266,8 @@ impl DiscontinuousArg for (usize, f64) {
   }
 }
 
-/// The forms of MeshFem::set_qdim (GetFEM's overloads): a number of
-/// components or a tensor shape.
+/// The forms of MeshFem::set_qdim: a number of components or a tensor
+/// shape.
 pub trait QdimArg {
   fn shape(&self) -> Vec<usize>;
 }

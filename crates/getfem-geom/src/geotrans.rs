@@ -1,4 +1,4 @@
-//! Geometric transformations X = G N(xref) (port of bgeot_geometric_trans).
+//! Geometric transformations X = G N(xref) (GetFEM's bgeot_geometric_trans).
 //!
 //! K = G grad N is N x P, B = K (K^T K)^-1 its pseudo-inverse (B = K^-T when
 //! square), J = sqrt(det(K^T K)) (|det K| when square).
@@ -667,9 +667,9 @@ pub fn matmul_into(a: &[f64], b: &[f64], (m, k, n): (usize, usize, usize), c: &m
   }
 }
 
-/// K = G pc (GetFEM geometric_trans::compute_K_matrix): G n x nb (the
-/// nodes), pc nb x p (the gradients of the base functions), column-major;
-/// fixed sizes for the usual dimensions (unrolled), matmul_into otherwise
+/// K = G pc: G n x nb (the nodes), pc nb x p (the gradients of the base
+/// functions), column-major; fixed sizes for the usual dimensions
+/// (unrolled), matmul_into otherwise
 #[allow(non_snake_case)]
 pub fn compute_K_matrix(g: &[f64], pc: &[f64], (n, nb, p): (usize, usize, usize), k: &mut [f64]) {
   match (n, p) {

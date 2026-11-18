@@ -1,4 +1,4 @@
-//! A mesh cut by level sets (port of getfem_mesh_level_set): for each
+//! A mesh cut by level sets (GetFEM's getfem_mesh_level_set): for each
 //! convex the level sets crossing it, and for each cut convex a mesh of
 //! sub-simplices in its reference element (degree K of the level sets,
 //! curved onto them), the zones (signs with respect to each level set) of
@@ -26,10 +26,9 @@ use crate::{Error, Result};
 use getfem_linalg::vect_dist2;
 
 /// The signs of a sub-element with respect to each level set: '+', '-',
-/// or '0' on the positive side of the secondary level set (GetFEM
-/// subzone).
+/// or '0' on the positive side of the secondary level set.
 pub type SubZone = String;
-/// Sub-zones connected through a level set's secondary part (GetFEM zone).
+/// Sub-zones connected through a level set's secondary part.
 pub type Zone = BTreeSet<SubZone>;
 pub type ZoneSet = BTreeSet<Zone>;
 
@@ -75,7 +74,7 @@ impl CutConvex {
 /// it, without crack tip functions.
 pub const FRONT_GRAZE: f64 = 0.05;
 
-/// A mesh with level sets (GetFEM mesh_level_set).
+/// A mesh with level sets.
 #[derive(Clone, Debug)]
 pub struct MeshLevelSet {
   mesh: Mesh,
@@ -136,8 +135,8 @@ fn start_point(n: usize, scale: f64) -> Vec<f64> {
   [0.37, 0.23, 0.31][..n].iter().map(|v| v * scale).collect()
 }
 
-/// The points of a cut (GetFEM point_stock): merged within GetFEM's node
-/// tolerance, with the constraints they meet and a curvature radius.
+/// The points of a cut: merged within GetFEM's node tolerance, with the
+/// constraints they meet and a curvature radius.
 struct PointStock<'a> {
   points: Vec<Vec<f64>>,
   constraints: Vec<u64>,
@@ -415,8 +414,8 @@ impl<'a> PointStock<'a> {
     }
   }
 
-  /// GetFEM decimate: points of the most constraints first, a point
-  /// dropped near a retained one meeting at least its constraints. The
+  /// Points of the most constraints first, a point dropped near a
+  /// retained one meeting at least its constraints. The
   /// spacing (not GetFEM's): on a level set the step of its curvature
   /// radius (step, at most cap), elsewhere that of the nearest such points
   /// grown by GRADING times the distance to them (graded cut, fine only
@@ -579,7 +578,7 @@ impl MeshLevelSet {
     })
   }
 
-  /// Cuts the convexes with respect to the level sets (GetFEM adapt).
+  /// Cuts the convexes with respect to the level sets.
   pub fn adapt(&mut self) -> Result<()> {
     self.primary_zones.clear();
     self.cut.clear();
@@ -755,7 +754,7 @@ impl MeshLevelSet {
   }
 
   /// The level sets crossing convex cv (primary; with their secondary
-  /// part), and the primary zone (GetFEM find_crossing_level_set).
+  /// part), and the primary zone.
   fn find_crossing_level_set(
     &self,
     cv: usize,
@@ -786,8 +785,7 @@ impl MeshLevelSet {
     Ok((prim, sec, z.into_iter().collect()))
   }
 
-  /// 0 if function i of ls crosses convex cv, else its sign (GetFEM
-  /// is_not_crossed_by)
+  /// 0 if function i of ls crosses convex cv, else its sign
   fn is_not_crossed_by(&self, cv: usize, ls: &LevelSet, i: usize, radius: f64) -> Result<i32> {
     let mf = ls.mesh_fem();
     let v = ls.values(i)?;
@@ -831,7 +829,7 @@ impl MeshLevelSet {
     Ok(0)
   }
 
-  /// The sub-mesh of convex cv (GetFEM cut_element).
+  /// The sub-mesh of convex cv.
   fn cut_element(
     &self,
     cv: usize,
@@ -1231,8 +1229,7 @@ impl MeshLevelSet {
     )))
   }
 
-  /// The zones of the sub-elements of a cut convex (GetFEM
-  /// find_zones_of_element).
+  /// The zones of the sub-elements of a cut convex.
   fn zones_of_element(
     &self,
     cv: usize,
@@ -1344,8 +1341,7 @@ impl MeshLevelSet {
   }
 
   /// The (non-conforming) mesh of the sub-elements of the cut convexes
-  /// and the uncut convexes; region 0: the faces on a level set (GetFEM
-  /// global_cut_mesh).
+  /// and the uncut convexes; region 0: the faces on a level set.
   pub fn global_cut_mesh(&self) -> Result<Mesh> {
     self.check_adapted()?;
     let m = self.mesh.snapshot();
@@ -1396,7 +1392,7 @@ impl MeshLevelSet {
   }
 
   /// The convexes where two or more level sets cross (to call after
-  /// adapt; GetFEM find_level_set_potential_intersections).
+  /// adapt).
   pub fn find_level_set_potential_intersections(&self) -> Result<Vec<(usize, BTreeSet<usize>)>> {
     self.check_adapted()?;
     let m = self.mesh.snapshot();
@@ -1415,9 +1411,8 @@ impl MeshLevelSet {
   }
 }
 
-/// The crossing point of f between a (f(a) = da) and b: Newton along
 /// +1 / -1: the side of sub-element i; 0: crossed in the positive part of
-/// the secondary level set (GetFEM sub_simplex_is_not_crossed_by).
+/// the secondary level set.
 fn sub_simplex_is_not_crossed_by(
   mls0: &ConvexLevelSet,
   mls1: Option<&ConvexLevelSet>,
@@ -1458,6 +1453,7 @@ fn sub_simplex_is_not_crossed_by(
   if d2 < 0.0 { -1 } else { 1 }
 }
 
+/// The crossing point of f between a (f(a) = da) and b: Newton along
 /// b - a, bisection if it fails (GetFEM cut_element)
 fn crossing(f: &dyn SignedDistance, a: &[f64], b: &[f64], da: f64, radius_cv: f64) -> Vec<f64> {
   let mut xref = a.to_vec();
@@ -1643,7 +1639,7 @@ pub fn jacobian(gt: &PGeoTrans, g: &getfem_linalg::tensor::Tensor<f64>, xref: &[
     .unwrap_or(0.0)
 }
 
-/// GetFEM convex_area_estimate: the measure by a rule of degree 2
+/// The measure by a rule of degree 2
 fn area_estimate(
   sm: &MeshData,
   i: usize,
@@ -1666,8 +1662,7 @@ fn area_estimate(
 }
 
 /// The nodes of degree K not at a vertex projected onto the constraints
-/// met by all vertices of their face, recursively over the faces
-/// (GetFEM interpolate_face)
+/// met by all vertices of their face, recursively over the faces;
 /// secondary: as PointStock's (curved onto a secondary only on the front)
 fn interpolate_faces(
   sm: &mut MeshData,
@@ -1775,8 +1770,8 @@ fn interpolate_face(
   Ok(())
 }
 
-/// GetFEM merge_zoneset of two zone sets: each zone of zones2 merged
-/// with the zones of zones1 it shares a sub-zone with
+/// Each zone of zones2 merged with the zones of zones1 it shares a
+/// sub-zone with
 pub(crate) fn merge_zonesets(zones1: &mut ZoneSet, zones2: &ZoneSet) {
   for z2 in zones2 {
     let mut z = z2.clone();
@@ -1791,8 +1786,8 @@ pub(crate) fn merge_zonesets(zones1: &mut ZoneSet, zones2: &ZoneSet) {
   }
 }
 
-/// GetFEM merge_zoneset: the sub-zone with its '0' replaced by '+' and '-'
-/// in all ways, merged with the zones it shares a sub-zone with
+/// The sub-zone with its '0' replaced by '+' and '-' in all ways, merged
+/// with the zones it shares a sub-zone with
 pub(crate) fn merge_zoneset(zones: &mut ZoneSet, subz: &str) {
   let mut z = Zone::new();
   let mut stack = vec![subz.to_string()];

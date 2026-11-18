@@ -177,12 +177,12 @@ fn periodic_cell_with_macro_strain() {
   // (XY = -YX) has no energy: penalized by (XY - YX)^2
   let mut l = vec![0.0; size];
   l[..4].copy_from_slice(&[sigma[0][0], sigma[0][1], sigma[1][0], sigma[1][1]]);
-  md.add_explicit_rhs("u", l).unwrap();
+  md.set_explicit_rhs("u", Some(l)).unwrap();
   let mut p = Coo::new(size, size);
   for (i, j, v) in [(1, 1, 1.0), (1, 2, -1.0), (2, 1, -1.0), (2, 2, 1.0)] {
     p.push(i, j, v);
   }
-  md.add_explicit_matrix("u", "u", p.to_csr().unwrap())
+  md.set_explicit_matrix("u", "u", Some(p.to_csr().unwrap()))
     .unwrap();
   assert!(Newton::default().solve(&mut md, None).unwrap().converged());
 

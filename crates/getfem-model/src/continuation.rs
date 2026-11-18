@@ -17,7 +17,7 @@ use crate::newton::NonlinearSystem;
 use crate::{BuildVersion, Error, Model, Result};
 use getfem_linalg::{vect_norm2, vect_sp};
 
-/// GetFEM's tau_bp_init, diffeps
+/// initial value of the bifurcation test's tau_bp
 const TAU_BP_INIT: f64 = 1e6;
 /// F_gamma by the forward difference of this step (gamma in [0, 1])
 const DIFFEPS: f64 = 1e-8;
@@ -66,8 +66,8 @@ pub struct NumericalContinuation {
   pub h_dec: f64,
   pub max_iter: usize,
   pub thr_iter: usize,
-  /// |F| absolute, in the units of the equations (GetFEM's; max_diff is
-  /// the dimensionless test)
+  /// |F| absolute, in the units of the equations (max_diff is the
+  /// dimensionless test)
   pub max_res: f64,
   pub max_diff: f64,
   pub min_cos: f64,
@@ -98,7 +98,7 @@ pub enum ContinuationStatus {
 #[derive(Clone, Debug)]
 pub struct ContinuationReport {
   pub status: ContinuationStatus,
-  /// the step length used (GetFEM h0; 0 if none)
+  /// the step length used (0 if none)
   pub h0: f64,
   /// "", "limit point", "smooth bifurcation point", "non-smooth
   /// bifurcation point"
@@ -182,8 +182,8 @@ impl NumericalContinuation {
   /// the tangent (tx, tgamma) with the step length h, both updated; the
   /// model holds the new point (the start point if failed). An empty tx:
   /// the tangent at the model's point, oriented by the sign of tgamma, and
-  /// h = h_init (GetFEM init_Moore_Penrose_continuation). sing_indicators: the
-  /// report's of the previous step (None: no history).
+  /// h = h_init (GetFEM init_Moore_Penrose_continuation). sing_indicators:
+  /// the report's of the previous step (None: no history).
   pub fn step(
     &self,
     md: &mut Model,
@@ -476,7 +476,7 @@ impl Cont {
     Ok(())
   }
 
-  /// GetFEM newton_corr: corrections of (X, Gamma) and (tX, tGamma);
+  /// Corrections of (X, Gamma) and (tX, tGamma);
   /// (converged, iterations index)
   #[allow(clippy::too_many_arguments)]
   fn newton_corr(
@@ -547,7 +547,7 @@ impl Cont {
   }
 
   /// One step; h is the next step length (0: failed). Returns the length
-  /// used (GetFEM h0). The model holds the new point.
+  /// used. The model holds the new point.
   fn moore_penrose_continuation(
     &mut self,
     md: &mut Model,
@@ -660,7 +660,7 @@ impl Cont {
       h0 = self.o.h_min;
       self.treat_nonsmooth_point(md, x, *gamma, &tx0, tgamma0, true)?;
       if !self.x_next.is_empty() {
-        // GetFEM tests the t_Gamma of the last corrector here (H:698)
+        // GetFEM tests the t_Gamma of the last corrector here
         if self.test_limit_point(tgg) {
           self.sing_label = "limit point".into();
         }
@@ -753,7 +753,7 @@ impl Cont {
     Ok(())
   }
 
-  /// GetFEM init_border: srand(seed) (GetFEM: the time), then the borders
+  /// srand(seed) (GetFEM: the time), then the borders
   fn init_border(&mut self, n: usize) {
     self.rand = Rand::new(self.o.seed);
     let nf = n as f64;
@@ -830,8 +830,8 @@ impl Cont {
     Ok(self.tau_bp_2 * self.tau_bp_1 < 0.0 && self.tau_bp_1.abs() < old.abs())
   }
 
-  /// GetFEM test_predict_dir: one predictor-corrector step from (x, gamma)
-  /// along (tx, tgamma), oriented by the secant
+  /// One predictor-corrector step from (x, gamma) along (tx, tgamma),
+  /// oriented by the secant
   fn test_predict_dir(
     &mut self,
     md: &mut Model,
@@ -871,7 +871,7 @@ impl Cont {
     Ok(true)
   }
 
-  /// GetFEM treat_smooth_bif_point: locate the point, the second branch
+  /// Locate the smooth bifurcation point, the second branch
   fn treat_smooth_bif_point(
     &mut self,
     md: &mut Model,
@@ -906,7 +906,7 @@ impl Cont {
         (tau1, v_x, v_gamma) = r;
         h *= tau1 / (tau0 - tau1);
       } else {
-        // GetFEM keeps the uncorrected predictor (H:448)
+        // GetFEM keeps the uncorrected predictor
         x0 = axpy(&x0, &tx0, h);
         gamma0 += h * tgamma0;
         let r = self.test_function_bp_at(md, &x0, gamma0, &tx0, tgamma0)?;
@@ -973,8 +973,7 @@ impl Cont {
 
   // ---- non-smooth points ----
 
-  /// GetFEM test_tangent: is the tangent at (x, gamma) + h (tX, tGamma)
-  /// close to (tX, tGamma)?
+  /// Is the tangent at (x, gamma) + h (tX, tGamma) close to (tX, tGamma)?
   #[allow(clippy::too_many_arguments)]
   fn test_tangent(
     &mut self,
@@ -994,7 +993,7 @@ impl Cont {
     Ok(self.cosang(&t1, tx_t, tg1, tgamma_t) >= self.o.min_cos)
   }
 
-  /// GetFEM switch_tangent: a simple tangent switch
+  /// A simple tangent switch
   fn switch_tangent(
     &mut self,
     md: &mut Model,
@@ -1040,8 +1039,8 @@ impl Cont {
     Ok(accepted)
   }
 
-  /// GetFEM test_nonsmooth_bifurcation: sign changes of the test function
-  /// on the convex combination of the two Jacobians
+  /// Sign changes of the test function on the convex combination of the
+  /// two Jacobians
   #[allow(clippy::too_many_arguments)]
   fn test_nonsmooth_bifurcation(
     &mut self,
@@ -1090,8 +1089,8 @@ impl Cont {
     Ok(nb_changes % 2 == 1)
   }
 
-  /// GetFEM treat_nonsmooth_point: locate the end point of the branch
-  /// (x, gamma) + (tx, tgamma), then search the branches from it
+  /// Locate the end point of the branch (x, gamma) + (tx, tgamma), then
+  /// search the branches from it
   fn treat_nonsmooth_point(
     &mut self,
     md: &mut Model,
@@ -1239,7 +1238,7 @@ impl Cont {
   }
 }
 
-/// c1 A1 + c2 A2 (gmm::add of scaled matrices)
+/// c1 A1 + c2 A2
 fn scaled_add_matrices(
   a1: &ColMatrix<f64>,
   c1: f64,

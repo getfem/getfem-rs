@@ -278,10 +278,10 @@ impl Default for Defs {
       elementary_transformations: BTreeSet::new(),
       operators: crate::operators::Operators::default(),
     };
-    // predefined transformations of GetFEM's ga_workspace
+    // the predefined transformations
     d.interpolate_transformations
       .insert(NEIGHBOR.into(), vec![]);
-    // predefined macros of GetFEM's ga_workspace
+    // the predefined macros
     for (m, e) in [("Hess(u)", "Hess_u"), ("Div(u)", "Div_u")] {
       d.macros.add(m, e).expect("predefined macro");
     }

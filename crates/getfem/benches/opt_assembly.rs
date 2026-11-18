@@ -24,9 +24,8 @@ use getfem::linalg::ColMatrix;
 const CONFIGS: [(usize, usize, usize); 5] =
   [(2, 400, 1), (3, 36, 1), (2, 200, 2), (3, 18, 2), (3, 9, 4)];
 
-/// the cases of opt_assembly's select set, then the forms of GetFEM's
-/// structured contractions: (order, expression, integration of degree
-/// 2k-2, else 2k)
+/// the cases of opt_assembly's select set, then the forms of structured
+/// contractions: (order, expression, integration of degree 2k-2, else 2k)
 const CASES: [(usize, &str, bool); 10] = [
   (1, "u.Test_u", false),
   (1, "Det(Grad_u)", false),
@@ -127,7 +126,7 @@ enum Assembled<'a> {
   Matrix(&'a ColMatrix<f64>),
 }
 
-/// one assembly, the result as GetFEM gives it (a column matrix for matrices)
+/// one assembly (a column matrix for matrices)
 #[inline(never)]
 fn measured(s: &mut Setup, c: usize) -> Assembled<'_> {
   body(s, c)
@@ -203,7 +202,7 @@ fn main() {
       let mut t = vec![];
       for _ in 0..reps {
         let t0 = Instant::now();
-        // the result in the workspace's storage (reused), as GetFEM's
+        // the result in the workspace's storage (reused)
         black_box(measured(&mut s, i));
         t.push(t0.elapsed().as_secs_f64());
       }

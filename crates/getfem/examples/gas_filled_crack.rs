@@ -171,7 +171,7 @@ pub fn simulate(ny: usize, step: &mut dyn FnMut(usize, &Step)) {
     .set_simplex_im(
       &integ_descriptor("IM_STRUCTURED_COMPOSITE(IM_TRIANGLE(6),5)").unwrap(),
       Some(&integ_descriptor("IM_STRUCTURED_COMPOSITE(IM_GAUSS_PARALLELEPIPED(2,6),9)").unwrap()),
-      // GetFEM's rule on every sub-triangle (tau 0)
+      // the rule on every sub-triangle (tau 0)
       0.0,
     )
     .unwrap();

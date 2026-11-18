@@ -617,8 +617,7 @@ fn structured_forms_agree() {
   }
 }
 
-/// Diff differentiates var through any transformation too (GetFEM
-/// any_trans)
+/// Diff differentiates var through any transformation too (any_trans)
 #[test]
 fn diff_through_a_transformation() {
   let (mut ws, mim) = setup(2, 2, "GT_PK(2,1)");
@@ -678,7 +677,6 @@ fn filter_without_status_passes_every_target() {
 }
 
 /// Grad(Interpolate_filter(t, e, i)) = Interpolate_filter(t, Grad(e), i)
-/// (GetFEM ga_node_grad)
 #[test]
 fn grad_of_a_filter() {
   let (mut ws, mim) = setup(2, 2, "GT_PK(2,1)");
@@ -735,9 +733,8 @@ fn grad_with_element_k() {
   assert!(b != 0.0 && (a - b).abs() < 1e-12 * b.abs(), "{a} {b}");
 }
 
-/// element_K, element_B of 1D elements in 2D: N x 1 and 1 x N, K a
-/// vector (GetFEM ref_elt_dim_of_mesh: the elements' dimension, not the
-/// mesh's)
+/// element_K, element_B of 1D elements in 2D: vectors of size N (the
+/// elements' dimension, not the mesh's; element_B N x P as K)
 #[test]
 fn element_k_of_a_line_in_2d() {
   use getfem_linalg::tensor::Mat;
@@ -758,12 +755,224 @@ fn element_k_of_a_line_in_2d() {
   for (e, v) in [
     ("abs(element_K(1))", 3.75),
     ("abs(element_K(2))", 5.0),
-    ("abs(element_B(1,2))", 3.2),
+    ("abs(element_B(2))", 3.2),
     ("element_B.element_K", 5.0),
   ] {
     let a = f(e);
     assert!((a - v).abs() < 1e-13, "{e}: {a} {v}");
   }
+}
+
+/// element_B of triangles in 3D: N x P as K, B'K = I (a reshape of B
+/// instead of its transpose fails with a non-orthogonal map)
+#[test]
+fn element_b_of_a_surface_in_3d() {
+  use getfem_linalg::tensor::Mat;
+  let m = regular_unit_mesh(&[2, 2], &geotrans_descriptor("GT_PK(2,1)").unwrap()).unwrap();
+  // the unit square onto a parallelogram in 3D: area |a x b| = sqrt(12)
+  m.transform(&Mat::from_rows(&[&[1.0, 1.0], &[0.0, 2.0], &[1.0, 3.0]]))
+    .unwrap();
+  let mim = MeshIm::new(&m).with_integration_method(2).unwrap();
+  let mut ws = Workspace::new();
+  let mut f = |e: &str| {
+    ws.clear_expressions();
+    ws.add_expression(e, &mim, -1).unwrap();
+    ws.assembly(0, false).unwrap();
+    ws.assembled_potential()
+  };
+  let area = 12.0_f64.sqrt();
+  assert!((f("1") - area).abs() < 1e-13);
+  let e = f("Norm_sqr(element_B'*element_K - Id(2))");
+  assert!(e.abs() < 1e-24, "{e}");
+  let t = f("Trace(element_K'*element_B)");
+  assert!((t - 2.0 * area).abs() < 1e-12, "{t}");
+}
+
+/// A hypersurface x = f(s), s in [0,1]^(n-1), meshed by simplices of
+/// degree k, nx subdivisions per direction, consistently oriented (GetFEM
+/// test_element_curvature build_mapped_mesh)
+fn mapped_mesh(
+  n: usize,
+  k: usize,
+  nx: usize,
+  f: impl Fn(&[f64]) -> Vec<f64>,
+) -> getfem_geom::mesh::Mesh {
+  let gt = geotrans_descriptor(&format!("GT_PK({},{k})", n - 1)).unwrap();
+  let h = 1.0 / nx as f64;
+  let mut simplices: Vec<Vec<[f64; 2]>> = vec![];
+  for i in 0..nx {
+    let x = i as f64 * h;
+    if n == 2 {
+      simplices.push(vec![[x, 0.0], [x + h, 0.0]]);
+    } else {
+      for j in 0..nx {
+        let y = j as f64 * h;
+        simplices.push(vec![[x, y], [x + h, y], [x, y + h]]);
+        simplices.push(vec![[x + h, y], [x + h, y + h], [x, y + h]]);
+      }
+    }
+  }
+  let m = getfem_geom::mesh::Mesh::new(n);
+  for sx in &simplices {
+    let pts: Vec<Vec<f64>> = gt
+      .geometric_nodes()
+      .iter()
+      .map(|xi| {
+        let mut p = sx[0];
+        for (a, &c) in xi.iter().enumerate() {
+          for d in 0..2 {
+            p[d] += c * (sx[a + 1][d] - sx[0][d]);
+          }
+        }
+        f(&p)
+      })
+      .collect();
+    let refs: Vec<&[f64]> = pts.iter().map(|p| &p[..]).collect();
+    m.add_convex_by_points(&gt, &refs).unwrap();
+  }
+  m
+}
+
+/// sqrt(mean of e over the mesh)
+fn rms(m: &getfem_geom::mesh::Mesh, e: &str) -> f64 {
+  let mim = MeshIm::new(m).with_integration_method(10).unwrap();
+  let mut ws = Workspace::new();
+  let mut f = |e: &str| {
+    ws.clear_expressions();
+    ws.add_expression(e, &mim, -1).unwrap();
+    ws.assembly(0, false).unwrap();
+    ws.assembled_potential()
+  };
+  (f(e) / f("1")).sqrt()
+}
+
+/// element_curvature on curved meshes of degree k = 2, 3 (GetFEM's
+/// test_element_curvature): sphere (tensor, mixed components, mean and
+/// Gauss curvatures), cylinder, circle; errors as GetFEM's tolerances at
+/// nx = 8, decreasing as h^(k-1) from nx = 4; zero on a linear plane
+#[test]
+fn element_curvature_of_curved_meshes() {
+  let r = 2.0_f64;
+  let sphere = move |p: &[f64]| {
+    let (th, ph) = (0.5 + 1.5 * p[0], 1.5 * p[1]);
+    vec![
+      r * th.sin() * ph.cos(),
+      r * th.sin() * ph.sin(),
+      r * th.cos(),
+    ]
+  };
+  let cylinder = move |p: &[f64]| {
+    let ph = 2.0 * p[0];
+    vec![r * ph.cos(), r * ph.sin(), 3.0 * p[1]]
+  };
+  let circle = move |p: &[f64]| {
+    let ph = 3.0 * p[0];
+    vec![r * ph.cos(), r * ph.sin()]
+  };
+  let c = "element_curvature";
+  let pr = "(Id(3)-X@X/4)";
+  let q = "([X(1);X(2);0]@[X(1);X(2);0])/4";
+  let sphere_cases = [
+    format!("Norm_sqr({c} - {pr}/2)*4"),
+    format!("Norm_sqr(element_B'*{c}*element_K - Id(2)/2)*4"),
+    format!("sqr(Trace({c})/2 - 1/2)*4"),
+    format!("Norm_sqr({c}*{c} - {pr}/4)*16"),
+    format!("sqr((sqr(Trace({c}))-Trace({c}*{c}))/2 - 1/4)*16"),
+  ];
+  for k in 2..=3 {
+    let tol = if k == 2 { 2e-1 } else { 2e-2 };
+    let mut cases: Vec<(getfem_geom::mesh::Mesh, getfem_geom::mesh::Mesh, String)> = vec![];
+    for e in &sphere_cases {
+      cases.push((
+        mapped_mesh(3, k, 4, sphere),
+        mapped_mesh(3, k, 8, sphere),
+        e.clone(),
+      ));
+    }
+    cases.push((
+      mapped_mesh(3, k, 4, cylinder),
+      mapped_mesh(3, k, 8, cylinder),
+      format!("Norm_sqr({c} - (Id(3)-[0;0;1]@[0;0;1]-{q})/2)*4"),
+    ));
+    cases.push((
+      mapped_mesh(2, k, 4, circle),
+      mapped_mesh(2, k, 8, circle),
+      format!("Norm_sqr({c} - (Id(2)-X@X/4)/2)*4"),
+    ));
+    for (m4, m8, e) in &cases {
+      let (e4, e8) = (rms(m4, e), rms(m8, e));
+      let rate = (e4 / e8).log2();
+      assert!(e8 < tol, "k = {k}, {e}: {e8}");
+      assert!(
+        rate > k as f64 - 1.3,
+        "k = {k}, {e}: rate {rate} ({e4}, {e8})"
+      );
+    }
+  }
+  let plane = mapped_mesh(3, 1, 4, |p| vec![p[0], p[1], p[0] + 2.0 * p[1]]);
+  assert!(rms(&plane, &format!("Norm_sqr({c})")) < 1e-12);
+  // a volume mesh: refused
+  let (mut ws, mim) = setup(2, 1, "GT_PK(2,1)");
+  ws.add_expression(&format!("Trace({c})"), &mim, -1).unwrap();
+  let err = ws.assembly(0, false).unwrap_err().to_string();
+  assert!(err.contains("curves in 2D and surfaces in 3D"), "{err}");
+}
+
+/// Normal inside a curve in 2D or a surface in 3D: the element's unit
+/// normal, oriented as element_curvature (K_1 x K_2, (K_21, -K_11)), so
+/// element_curvature = grad_s Normal (outward on the sphere and circle
+/// below, element_curvature = P/R); inside other elements an error
+#[test]
+fn normal_inside_curves_and_surfaces() {
+  let r = 2.0_f64;
+  let sphere = move |p: &[f64]| {
+    let (th, ph) = (0.5 + 1.5 * p[0], 1.5 * p[1]);
+    vec![
+      r * th.sin() * ph.cos(),
+      r * th.sin() * ph.sin(),
+      r * th.cos(),
+    ]
+  };
+  let circle = move |p: &[f64]| {
+    let ph = 3.0 * p[0];
+    vec![r * ph.cos(), r * ph.sin()]
+  };
+  let plane = mapped_mesh(3, 1, 4, |p| vec![p[0], p[1], p[0] + 2.0 * p[1]]);
+  let e = rms(&plane, "Norm_sqr(Normal - [-1;-2;1]/sqrt(6))");
+  assert!(e < 1e-14, "{e}");
+  // errors O(h^k) for Normal, O(h^(k-1)) for element_curvature
+  let e = "Norm_sqr(Normal - X/2)";
+  let c = "Norm_sqr(element_curvature - (Id(meshdim) - Normal@Normal)/2)";
+  for (k, te, tc) in [(2, 2e-3, 2e-1), (3, 2e-4, 2e-2)] {
+    let kf = k as f64;
+    for (d, f) in [(3, &sphere as &dyn Fn(&[f64]) -> Vec<f64>), (2, &circle)] {
+      let (m4, m8) = (mapped_mesh(d, k, 4, f), mapped_mesh(d, k, 8, f));
+      for (x, tol, q) in [(e, te, kf), (c, tc, kf - 1.0)] {
+        let (e4, e8) = (rms(&m4, x), rms(&m8, x));
+        let rate = (e4 / e8).log2();
+        assert!(e8 < tol, "k = {k}, {x}: {e8}");
+        assert!(rate > q - 0.3, "k = {k}, {x}: rate {rate} ({e4}, {e8})");
+      }
+    }
+  }
+  // a 2D element in 2D, a line in 3D: refused
+  let line3 = getfem_geom::mesh::Mesh::new(3);
+  let gt1 = geotrans_descriptor("GT_PK(1,1)").unwrap();
+  line3
+    .add_convex_by_points(&gt1, &[&[0.0, 0.0, 0.0], &[1.0, 2.0, 0.0]])
+    .unwrap();
+  let (mut ws, mim) = setup(2, 1, "GT_PK(2,1)");
+  ws.add_expression("Normal(1)", &mim, -1).unwrap();
+  let err = ws.assembly(0, false).unwrap_err().to_string();
+  assert!(
+    err.contains("Normal inside element 0 (of dimension 2 in 2D)"),
+    "{err}"
+  );
+  let mim = MeshIm::new(&line3).with_integration_method(2).unwrap();
+  let mut ws = Workspace::new();
+  ws.add_expression("Normal(1)", &mim, -1).unwrap();
+  let err = ws.assembly(0, false).unwrap_err().to_string();
+  assert!(err.contains("(of dimension 1 in 3D)"), "{err}");
 }
 
 /// Plane_Strain_ SVK: GetFEM's plain operators, in any dimension

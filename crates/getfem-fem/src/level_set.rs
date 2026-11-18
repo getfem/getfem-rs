@@ -1,7 +1,7 @@
-//! Level sets (port of getfem_level_set): a primary function and an
+//! Level sets (GetFEM's getfem_level_set): a primary function and an
 //! optional secondary one on a Lagrange space of degree k, as a shared
 //! handle. On each convex, a level set is a polynomial of the reference
-//! coordinates (GetFEM mls_of_convex).
+//! coordinates.
 
 use getfem_geom::mesh::Mesh;
 use getfem_geom::shared::Shared;
@@ -20,8 +20,8 @@ struct Inner {
   version: u64,
 }
 
-/// A level set (GetFEM level_set): values on the nodes of a Lagrange space
-/// of degree k of the mesh, primary (0) and optionally secondary (1).
+/// A level set: values on the nodes of a Lagrange space of degree k of
+/// the mesh, primary (0) and optionally secondary (1).
 #[derive(Clone, Debug)]
 pub struct LevelSet(Shared<Inner>);
 
@@ -31,7 +31,7 @@ pub struct ConvexLevelSet {
   pf: PFem,
   coeff: Vec<f64>,
   /// the function, its gradient and Hessian (column-major) as polynomials
-  /// (GetFEM mesher_level_set), for polynomial elements
+  /// for polynomial elements
   polys: Option<(Poly, Vec<Poly>, Vec<Poly>)>,
 }
 
@@ -58,8 +58,7 @@ impl LevelSet {
     self.0.id()
   }
 
-  /// Zero level sets of degree k on mesh (GetFEM level_set(mesh, k,
-  /// with_secondary)).
+  /// Zero level sets of degree k on mesh.
   pub fn new(mesh: &Mesh, degree: usize, with_secondary: bool) -> Result<Self> {
     let mf = MeshFem::new(mesh, 1).with_classical_finite_element(degree)?;
     let n = mf.nb_dof()?;
@@ -124,14 +123,14 @@ impl LevelSet {
   }
 
   /// Sets to 0 the values below eps times the radius estimate of a convex
-  /// of the node (GetFEM simplify).
+  /// of the node.
   pub fn simplify(&self, eps: f64) -> Result<()> {
     let mf = self.mesh_fem();
     let num = mf.numbering()?;
     let m = num.linked_mesh();
     let mut v = self.0.snapshot().values.clone();
     for cv in num.convex_index() {
-      // GetFEM convex_radius_estimate: q sqrt(N) / 2, half the element size
+      // radius estimate: q sqrt(N) / 2, half the element size
       let h = m
         .trans_of_convex(cv)
         .element_size(&m.points_of_convex(cv))?
@@ -151,8 +150,7 @@ impl LevelSet {
     Ok(())
   }
 
-  /// The primary (0) or secondary (1) function on convex cv (GetFEM
-  /// mls_of_convex, without the deprecated shift).
+  /// The primary (0) or secondary (1) function on convex cv.
   pub fn of_convex(&self, cv: usize, i: usize) -> Result<ConvexLevelSet> {
     self.check(i)?;
     let s = self.0.snapshot();

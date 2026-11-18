@@ -12,7 +12,7 @@ use crate::im_data::ImData;
 use crate::mesh_fem::MeshFem;
 use crate::{Error, Result};
 
-/// Tolerance of the point location (GetFEM's EPS of interpolation).
+/// Tolerance of the point location.
 const EPS: f64 = 1e-10;
 
 /// Rows of the interpolated values of source at the reference point xref of
@@ -25,7 +25,7 @@ fn local_rows(source: &MeshFem, cv: usize, xref: &[f64]) -> Result<Vec<Vec<(usiz
     .ok_or_else(|| Error::InvalidArgument(format!("no element on convex {cv}")))?;
   let (q, t, nd) = (num.qdim(), pf.target_dim(), pf.nb_dof());
   // values of a tau-equivalent scalar element: the reference basis, no
-  // geometry (GetFEM; flat cells of a cut mesh have no inverse)
+  // geometry (flat cells of a cut mesh have no inverse)
   let val = if pf.is_equivalent() && !pf.real_element_defined() && t == 1 {
     pf.base_value(xref)?.data().to_vec()
   } else {
@@ -39,7 +39,7 @@ fn local_rows(source: &MeshFem, cv: usize, xref: &[f64]) -> Result<Vec<Vec<(usiz
       .collect()
   } else {
     // vector element, qdim = Q target_dim: component a + t qq from DOF
-    // i Q + qq (GetFEM virtual_fem::interpolation, Qmult)
+    // i Q + qq
     let qm = q / t;
     (0..q)
       .map(|c| {
@@ -75,7 +75,7 @@ fn check_target(source: &MeshFem, target: &MeshFem) -> Result<usize> {
   Ok(qs / qt)
 }
 
-/// GetFEM interpolation_same_mesh: source evaluated at the nodes of the
+/// Interpolation on the same mesh: source evaluated at the nodes of the
 /// target elements; values from discontinuous source elements averaged.
 /// emit(target row, source row) for each evaluation; returns per target
 /// basic DOF the number of evaluations (to average by).
@@ -124,7 +124,7 @@ fn same_mesh_rows(
       *rows[row].entry(j).or_insert(0.0) += v;
     }
   })?;
-  // all the qdim components of a target node (GetFEM: k < qdim)
+  // all the qdim components of a target node
   let qs = source.numbering()?.qdim();
   for (d, &p) in passes.iter().enumerate() {
     if p > 1 {
@@ -160,8 +160,8 @@ fn same_mesh_values(
   Ok(out)
 }
 
-/// Rows at points located in the source mesh (GetFEM interpolation with a
-/// mesh_trans_inv); a point outside the source mesh is an error.
+/// Rows at points located in the source mesh; a point outside the source mesh
+/// is an error.
 fn at_points(source: &MeshFem, points: &[Vec<f64>]) -> Result<Vec<BTreeMap<usize, f64>>> {
   let ns = source.numbering()?;
   let q = ns.qdim();
@@ -190,9 +190,9 @@ fn at_points(source: &MeshFem, points: &[Vec<f64>]) -> Result<Vec<BTreeMap<usize
 }
 
 /// Matrix M with (values on target) = M (values on source), on the DOFs
-/// of both spaces (GetFEM interpolation(mf_source, mf_target, M)). The
-/// target must be a scalar Lagrange space of qdim 1 or the qdim of source;
-/// with qdim 1, each target DOF receives the qdim components of source.
+/// of both spaces. The target must be a scalar Lagrange space of qdim 1
+/// or the qdim of source; with qdim 1, each target DOF receives the qdim
+/// components of source.
 pub fn interpolation_matrix(source: &MeshFem, target: &MeshFem) -> Result<Csr<f64>> {
   let qmult = check_target(source, target)?;
   let rows = if source.linked_mesh().same(&target.linked_mesh()) {
@@ -237,9 +237,9 @@ pub fn interpolation_matrix(source: &MeshFem, target: &MeshFem) -> Result<Csr<f6
   Ok(m)
 }
 
-/// Values of u (on source) interpolated on target (GetFEM interpolation).
-/// The values are computed point by point (no matrix: its rows hold every
-/// DOF of the source element at each target node).
+/// Values of u (on source) interpolated on target. The values are
+/// computed point by point (no matrix: its rows hold every DOF of the
+/// source element at each target node).
 pub fn interpolation(source: &MeshFem, target: &MeshFem, u: &[f64]) -> Result<Vec<f64>> {
   check_size(source, u)?;
   let qmult = check_target(source, target)?;
@@ -290,8 +290,7 @@ pub fn interpolation_at_points(
 }
 
 /// Values of u (on source) at the integration points of imd, the
-/// components of the field as the tensor of imd (GetFEM
-/// interpolation_to_im_data).
+/// components of the field as the tensor of imd.
 pub fn interpolation_to_im_data(source: &MeshFem, imd: &ImData, u: &[f64]) -> Result<Vec<f64>> {
   check_size(source, u)?;
   let ue = source.extend_vector(u)?;

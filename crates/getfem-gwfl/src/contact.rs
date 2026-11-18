@@ -1,7 +1,7 @@
-//! Raytracing and projection transformations (port of the contact
-//! transformations of GetFEM's getfem_contact_and_friction_common.cc): from
-//! a point of a slave boundary to the nearest master boundary or rigid
-//! obstacle, in the deformed configuration.
+//! Raytracing and projection transformations (the contact transformations
+//! of GetFEM's getfem_contact_and_friction_common.cc): from a point of a
+//! slave boundary to the nearest master boundary or rigid obstacle, in the
+//! deformed configuration.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -34,8 +34,10 @@ impl ContactKind {
   }
 }
 
-/// A contact boundary: a stored region of faces of a mesh, deformed by a
-/// displacement variable.
+/// A contact boundary: a stored region of faces of a mesh, or of the
+/// elements of a curve in 2D or a surface in 3D (shells, two-sided as
+/// master; as slave the rays go along the element's deformed normal, its
+/// orientation that of Normal), deformed by a displacement variable.
 #[derive(Clone, Debug)]
 pub struct ContactBoundary {
   pub mesh: Mesh,
@@ -44,8 +46,7 @@ pub struct ContactBoundary {
   pub slave: bool,
 }
 
-/// A raytracing or projection transformation (GetFEM
-/// add_raytracing_transformation, add_projection_transformation).
+/// A raytracing or projection transformation.
 #[derive(Clone, Debug)]
 pub struct Contact {
   pub kind: ContactKind,
@@ -97,7 +98,7 @@ pub(crate) struct DPoint {
   pub grad: Vec<f64>,
 }
 
-/// sign as gmm::sgn (1 at 0)
+/// sign, 1 at 0
 fn sgn(x: f64) -> f64 {
   if x < 0.0 { -1.0 } else { 1.0 }
 }
@@ -123,7 +124,7 @@ fn inverse(m: &Mat) -> Result<(Mat, f64)> {
 
 impl Disp {
   /// The deformed point x + u only (no derivatives), the same operations as
-  /// at(): the residual at GetFEM's line-search trial points
+  /// at(): the residual at the line-search trial points
   pub fn pos(&self, xref: &[f64]) -> Result<Vec<f64>> {
     let pf = &self.pf;
     if !pf.is_equivalent()
@@ -173,10 +174,23 @@ impl Disp {
 }
 
 impl DPoint {
-  /// normal of face f in the reference configuration (B n_ref, not unit)
-  /// and in the deformed one (unit), as GetFEM compute_normal
-  fn normals(&self, nref: &[f64]) -> Result<(Vec<f64>, Vec<f64>)> {
-    let n0 = mv(&self.geo.b, nref);
+  /// normal of face f (None: the element of a curve in 2D or a surface
+  /// in 3D) in the reference configuration (B n_ref, not unit; the unit
+  /// element normal) and in the deformed one (unit)
+  fn normals(
+    &self,
+    cr: &getfem_geom::convex_ref::PRef,
+    f: Option<usize>,
+  ) -> Result<(Vec<f64>, Vec<f64>)> {
+    let n0 = match f {
+      Some(f) => mv(&self.geo.b, &cr.normals()[f]),
+      None => {
+        let n = self.geo.b.nrows();
+        let mut v = vec![0.0; n];
+        crate::workspace::unit_normal_of_k(self.geo.k.data(), n, &mut v);
+        v
+      }
+    };
     let (finv, j) = inverse(&self.f)?;
     let mut n: Vec<f64> = mtv(&finv, &n0).iter().map(|v| v * sgn(j)).collect();
     let l = vect_norm2(&n);
@@ -301,7 +315,8 @@ pub(crate) struct RtBoundary {
 struct FaceBox {
   ib: usize,
   cv: usize,
-  f: usize,
+  /// None: the element of a curve in 2D or a surface in 3D (two-sided)
+  f: Option<usize>,
   mean_normal: Vec<f64>,
 }
 
@@ -326,8 +341,9 @@ pub(crate) struct InitializedContact {
 pub(crate) struct Hit {
   /// 0: none, 1: a master face, 2: a rigid obstacle
   pub status: usize,
-  /// status 1: target element, face, reference point
-  pub target: Option<(usize, usize, Vec<f64>)>,
+  /// status 1: target element, face (None: the element of a curve in 2D
+  /// or a surface in 3D), reference point
+  pub target: Option<(usize, Option<usize>, Vec<f64>)>,
   /// status 2: the point on the obstacle
   pub x: Option<Vec<f64>>,
   /// derivatives w.r.t. the displacement at the source (disp_x, test
@@ -363,6 +379,26 @@ fn tangents(nv: &[f64]) -> Vec<Vec<f64>> {
     }
   }
   out
+}
+
+/// The start point and the orthonormal reference directions of the
+/// searches on face f (None: on the element of a curve in 2D or a surface
+/// in 3D, its reference axes)
+fn face_frame(cr: &getfem_geom::convex_ref::PRef, f: Option<usize>) -> (Vec<f64>, Vec<Vec<f64>>) {
+  match f {
+    Some(f) => (face_centre(cr, f), tangents(&cr.normals()[f])),
+    None => {
+      let (p, np) = (cr.dim(), cr.points().len());
+      let mut c = vec![0.0; p];
+      for x in cr.points() {
+        c.iter_mut().zip(x).for_each(|(v, a)| *v += a / np as f64);
+      }
+      let e = (0..p)
+        .map(|k| (0..p).map(|i| (i == k) as u8 as f64).collect())
+        .collect();
+      (c, e)
+    }
+  }
 }
 
 /// y0ref + sum a_i t_i
@@ -426,17 +462,18 @@ impl InitializedContact {
       let region = b.region.resolve(&m)?;
       let (n, what) = (m.dim(), c.kind.name());
       for (cv, f) in region.iter() {
-        if f.is_none() {
-          return Err(Error::InvalidArgument(format!(
-            "{what} transformation {name}: the contact boundary {} of {} contains elements, faces expected",
-            b.region.id(),
-            b.disp
-          )));
-        }
         let p = m.trans_of_convex(cv).dim();
-        if p != n {
+        let ok = match f {
+          Some(_) => p == n,
+          None => p + 1 == n && (n == 2 || n == 3),
+        };
+        if !ok {
           return Err(Error::InvalidArgument(format!(
-            "{what} transformation {name}: element {cv} of the contact boundary of {} has dimension {p} in a mesh of dimension {n}; contact boundaries are faces of elements of the mesh dimension",
+            "{what} transformation {name}: {} of element {cv} (dimension {p} in a mesh of dimension {n}) on the contact boundary of {}; contact boundaries are faces of elements of the mesh dimension, or elements of curves in 2D and surfaces in 3D",
+            match f {
+              Some(f) => format!("face {f}"),
+              None => "the interior".into(),
+            },
             b.disp
           )));
         }
@@ -464,7 +501,7 @@ impl InitializedContact {
     Ok(rt)
   }
 
-  /// bounding boxes of the deformed master faces (GetFEM compute_face_boxes)
+  /// bounding boxes of the deformed master faces
   fn face_boxes(&mut self, disp: &DispOf) -> Result<()> {
     let mut tree: Option<RTree> = None;
     for (ib, b) in self.bounds.iter().enumerate() {
@@ -475,15 +512,18 @@ impl InitializedContact {
       let n = m.dim();
       let tr = tree.get_or_insert_with(|| RTree::new(n, 0.0));
       for (cv, f) in b.region.iter() {
-        let f = f.expect("faces checked");
         let d = disp(&b.disp, m, cv)?;
         let gt = &d.gt;
-        let nref = &gt.normals()[f];
         let (mut lo, mut hi) = (vec![f64::INFINITY; n], vec![f64::NEG_INFINITY; n]);
         let mut nm = vec![0.0; n];
-        for &ip in gt.structure().ind_points_of_face(f) {
+        let all: Vec<usize> = (0..gt.nb_points()).collect();
+        let ind = match f {
+          Some(f) => gt.structure().ind_points_of_face(f),
+          None => &all[..],
+        };
+        for &ip in ind {
           let p = d.at(&gt.geometric_nodes()[ip])?;
-          let (_, nv) = p.normals(nref)?;
+          let (_, nv) = p.normals(d.pf.ref_convex(), f)?;
           nm.iter_mut().zip(&nv).for_each(|(a, b)| *a += b);
           for k in 0..n {
             lo[k] = lo[k].min(p.phi[k]);
@@ -511,17 +551,15 @@ impl InitializedContact {
     Ok(())
   }
 
-  /// Raytrace from pt_x along n_x onto the deformed face f of d (GetFEM:
-  /// Newton on the tangential residual), the target point if converged
-  fn raytrace(d: &Disp, f: usize, pt_x: &[f64], n_x: &[f64]) -> Result<Option<DPoint>> {
+  /// Raytrace from pt_x along n_x onto the deformed face f of d by Newton on
+  /// the tangential residual: the target point if converged
+  fn raytrace(d: &Disp, f: Option<usize>, pt_x: &[f64], n_x: &[f64]) -> Result<Option<DPoint>> {
     let n = pt_x.len();
-    let cr = d.pf.ref_convex();
-    let y0ref = face_centre(cr, f);
-    let ti = tangents(&cr.normals()[f]);
+    let (y0ref, ti) = face_frame(d.pf.ref_convex(), f);
     let tt = tangents(n_x);
     let h = face_size(d, &y0ref, &ti)?;
     // the residual from the deformed point alone; the full point
-    // (its derivatives) only where the Newton matrix needs it, as GetFEM
+    // (its derivatives) only where the Newton matrix needs it
     let res = |a: &[f64]| -> Result<Vec<f64>> {
       let phi = d.pos(&on_face(&y0ref, &ti, a))?;
       let dxy: Vec<f64> = phi.iter().zip(pt_x).map(|(a, b)| a - b).collect();
@@ -556,7 +594,7 @@ impl InitializedContact {
         if inv.is_some() {
           break;
         }
-        // GetFEM perturbs a randomly
+        // singular: a perturbed, deterministically (GetFEM: randomly)
         a.iter_mut()
           .enumerate()
           .for_each(|(i, v)| *v += 1e-7 * (1.0 + (sub + i) as f64) / 7.0);
@@ -602,11 +640,9 @@ impl InitializedContact {
 
   /// Projection of pt_x onto the deformed face f of d (GetFEM: quasi
   /// Newton on the distance), the target point if converged
-  fn project(d: &Disp, f: usize, pt_x: &[f64]) -> Result<Option<DPoint>> {
+  fn project(d: &Disp, f: Option<usize>, pt_x: &[f64]) -> Result<Option<DPoint>> {
     let n = pt_x.len();
-    let cr = d.pf.ref_convex();
-    let y0ref = face_centre(cr, f);
-    let ti = tangents(&cr.normals()[f]);
+    let (y0ref, ti) = face_frame(d.pf.ref_convex(), f);
     let h = face_size(d, &y0ref, &ti)?;
     // |x(a) - pt_x| / 2 and the gradient of |x(a) - pt_x|^2 / 2 (as GetFEM)
     let cost = |a: &[f64]| -> Result<(f64, Vec<f64>, DPoint)> {
@@ -737,13 +773,13 @@ impl InitializedContact {
   }
 
   /// The target of the point xref of face face_x of element cv_x of m_x
-  /// (GetFEM raytracing/projection_interpolate_transformation::transform).
+  /// (None: inside the element of a curve in 2D or a surface in 3D).
   pub(crate) fn transform(
     &self,
     disp: &DispOf,
     m_x: &MeshData,
     cv_x: usize,
-    face_x: usize,
+    face_x: Option<usize>,
     xref: &[f64],
     ders: bool,
   ) -> Result<Hit> {
@@ -752,24 +788,32 @@ impl InitializedContact {
       .bounds
       .iter()
       .position(|b| {
-        b.mesh.geometry_version() == m_x.geometry_version() && b.region.is_in_face(cv_x, face_x)
+        b.mesh.geometry_version() == m_x.geometry_version()
+          && match face_x {
+            Some(f) => b.region.is_in_face(cv_x, f),
+            None => b.region.is_in(cv_x),
+          }
       })
       .ok_or_else(|| {
         Error::InvalidArgument(format!(
-          "{what} transformation: face {face_x} of element {cv_x} is on no contact boundary"
+          "{what} transformation: {} of element {cv_x} is on no contact boundary",
+          match face_x {
+            Some(f) => format!("face {f}"),
+            None => "the interior (contact boundaries: faces, or elements of curves in 2D and surfaces in 3D)".into(),
+          }
         ))
       })?;
     let b_x = &self.bounds[ib_x];
     let n = m_x.dim();
     let d_x = disp(&b_x.disp, m_x, cv_x)?;
     let px = d_x.at(xref)?;
-    let (_, n_x) = px.normals(&d_x.gt.normals()[face_x])?;
+    let (_, n_x) = px.normals(d_x.pf.ref_convex(), face_x)?;
     let pt_x = px.phi.clone();
 
     // (signed distance, n_y, target: (ib, cv, f, point) or obstacle point)
     #[allow(clippy::large_enum_variant)]
     enum T {
-      Face(usize, usize, usize, DPoint),
+      Face(usize, usize, Option<usize>, DPoint),
       Rigid(Vec<f64>),
     }
     let mut best: Option<(f64, Vec<f64>, T)> = self
@@ -790,8 +834,10 @@ impl InitializedContact {
       let fb = &self.faces[id];
       let b_y = &self.bounds[fb.ib];
       let same_mesh = b_y.mesh.geometry_version() == m_x.geometry_version();
-      // criterion 1: compatible normals, not the same element
-      if vect_sp(&fb.mean_normal, &n_x) >= 0.0 || (fb.cv == cv_x && same_mesh) {
+      // criterion 1: compatible normals (not for two-sided shells), not
+      // the same element
+      let two_sided = fb.f.is_none();
+      if (!two_sided && vect_sp(&fb.mean_normal, &n_x) >= 0.0) || (fb.cv == cv_x && same_mesh) {
         continue;
       }
       let d_y = disp(&b_y.disp, &b_y.mesh, fb.cv)?;
@@ -810,7 +856,11 @@ impl InitializedContact {
       if g > self.release {
         continue;
       }
-      let (n0_y, n_y) = py.normals(&d_y.gt.normals()[fb.f])?;
+      let (n0_y, mut n_y) = py.normals(d_y.pf.ref_convex(), fb.f)?;
+      // a shell faces the ray
+      if two_sided && vect_sp(&n_y, &n_x) > 0.0 {
+        n_y.iter_mut().for_each(|v| *v = -*v);
+      }
       g *= sgn(vect_sp(&diff, &n_y));
       // criteria 5, 7: nearest (signed distance)
       if best.as_ref().is_some_and(|b| b.0 < g) {

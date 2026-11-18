@@ -253,8 +253,7 @@ pub enum Exported<'a> {
   Slice(&'a StoredMeshSlice),
 }
 
-/// What a VtuExport exports: a mesh, a space or a slice (GetFEM's
-/// overloads of vtk_export::exporting).
+/// What a VtuExport exports: a mesh, a space or a slice.
 pub trait ExportingArg<'a> {
   fn exported(self) -> Result<Exported<'a>>;
 }
@@ -277,8 +276,7 @@ impl<'a> ExportingArg<'a> for &'a StoredMeshSlice {
   }
 }
 
-/// A .vtu file (GetFEM's vtu_export): exporting(..), then the fields, then
-/// write().
+/// A .vtu file: exporting(..), then the fields, then write().
 pub struct VtuExport<'a> {
   path: String,
   format: Format,

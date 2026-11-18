@@ -35,6 +35,11 @@ fn lu_det_inverse() {
   let s = Mat::from_rows(&[&[1., 2.], &[2., 4.]]);
   assert!(matches!(inverse(&s), Err(Error::Singular(_))));
   assert_eq!(det(&s).unwrap(), 0.0);
+  // zero at the last pivot only; non-square: refused
+  let s3 = Mat::from_rows(&[&[1., 0., 1.], &[0., 1., 1.], &[1., 1., 2.]]);
+  assert!(matches!(Lu::new(&s3), Err(Error::Singular(_))));
+  let r = Mat::from_rows(&[&[1., 2.], &[3., 4.], &[5., 6.]]);
+  assert!(matches!(Lu::new(&r), Err(Error::InvalidArgument(_))));
 }
 
 #[test]

@@ -28,7 +28,7 @@ def test_empty_add_convex():
 
 
 def test_regions():
-  # as GetFEM's: convexes (row 0), faces (row 1)
+  # convexes (row 0), faces (row 1)
   m = gf.Mesh("cartesian", np.linspace(0, 1, 4), [0.0, 0.5, 2.0])
   of = [[0, 0, 1, 2, 2, 3, 3, 4, 5, 5], [1, 3, 3, 0, 3, 1, 2, 2, 0, 2]]
   assert np.array_equal(m.outer_faces(), of)
@@ -52,11 +52,11 @@ def test_regions():
   assert abs(area(6) - area(7) - area(8)) < 1e-12
   with pytest.raises(ValueError):
     m.set_region(3, [[0], [-2]])
-  # read back: two rows, face -1 for a whole convex (GetFEM's)
+  # read back: two rows, face -1 for a whole convex
   assert np.array_equal(m.region(1), bottom)
   assert np.array_equal(m.region(6), [[0, 1], [3, -1]])
   assert np.array_equal(m.region([7, 8]), [[0, 1], [3, -1]])
-  # GetFEM's region_subtract, region_merge, region_intersect (r1 changed)
+  # region_subtract, region_merge, region_intersect (r1 changed)
   m.set_region(9, [0, 1, 2])
   m.region_subtract(9, 8)
   assert np.array_equal(m.region(9), [[0, 2], [-1, -1]])

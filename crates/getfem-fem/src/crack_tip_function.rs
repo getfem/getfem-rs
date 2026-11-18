@@ -151,7 +151,7 @@ struct SingularFn {
 
 impl SingularFn {
   /// r, s, c, the unit vectors n (radial), t (tangential) at (x, y); s
-  /// has the sign of y, positive on y = 0 (GetFEM)
+  /// has the sign of y, positive on y = 0
   fn polar(x: f64, y: f64) -> (f64, f64, f64, [f64; 2], [f64; 2]) {
     let r = (x * x + y * y).sqrt();
     let sgn = if y < 0.0 { -1.0 } else { 1.0 };
@@ -424,8 +424,8 @@ impl CrackTipFunction {
     self.0.hess(x, y)
   }
 
-  /// A singular function of the crack tip asymptotics (GetFEM
-  /// crack_singular_xy_function; 0 within 1e-10 of the tip).
+  /// A singular function of the crack tip asymptotics (0 within 1e-10 of
+  /// the tip).
   pub fn crack(f: Singular) -> Self {
     let (a, p0) = f.parts();
     let p1 = dtheta(&p0);
@@ -433,7 +433,7 @@ impl CrackTipFunction {
     CrackTipFunction::new(SingularFn { a, p: [p0, p1, p2] })
   }
 
-  /// A cutoff around the tip (GetFEM cutoff_xy_function).
+  /// A cutoff around the tip.
   pub fn cutoff(c: Cutoff) -> Result<Self> {
     match c {
       Cutoff::Exponential { radius } if radius.is_nan() || radius <= 0.0 => Err(
@@ -471,12 +471,12 @@ impl CrackTipFunction {
     Ok(CrackTipFunction::new(AngularHat { n, m, periodic }))
   }
 
-  /// f g (GetFEM product_of_xy_functions).
+  /// f g.
   pub fn product(f: &CrackTipFunction, g: &CrackTipFunction) -> Self {
     CrackTipFunction::new(Product(f.clone(), g.clone()))
   }
 
-  /// The sum of the functions (GetFEM add_of_xy_functions).
+  /// The sum of the functions.
   pub fn sum(funcs: &[CrackTipFunction]) -> Self {
     CrackTipFunction::new(Sum(funcs.to_vec()))
   }

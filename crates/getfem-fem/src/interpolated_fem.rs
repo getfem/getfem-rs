@@ -44,8 +44,8 @@ impl Source {
     Ok(Source { num, tree })
   }
 
-  /// A source convex containing x (hint first, as GetFEM's find_a_point
-  /// with the previous convex; then the lowest), and the reference point.
+  /// A source convex containing x (hint first, then the lowest), and the
+  /// reference point.
   fn locate(&self, x: &[f64], hint: Option<usize>) -> Result<Option<Location>> {
     let m = self.num.linked_mesh();
     if let Some(cv) = hint {
@@ -85,7 +85,7 @@ pub struct InterpolatedFem {
   target: usize,
   src: Arc<Source>,
   /// the integration points of the element (reference coordinates) and
-  /// where they are in the source (GetFEM gausspt)
+  /// where they are in the source
   located: Vec<(Vec<f64>, Option<Location>)>,
 }
 
@@ -211,12 +211,11 @@ impl InterpolatedFem {
 }
 
 /// The space on the mesh of mim whose functions are those of source,
-/// evaluated at the points of mim (GetFEM new_interpolated_fem, set on
-/// all convexes of mim). The space is built from the current source and
-/// mim: build it again after they change.
+/// evaluated at the points of mim, on all convexes of mim. The space is
+/// built from the current source and mim: build it again after they
+/// change.
 pub fn new_interpolated_fem(source: &MeshFem, mim: &MeshIm) -> Result<MeshFem> {
   let num = source.numbering()?;
-  // as GetFEM (interpolated_fem: !mf.is_reduced())
   if source.is_reduced() {
     return Err(Error::InvalidArgument(
       "interpolated element of a reduced (or partial) space".into(),

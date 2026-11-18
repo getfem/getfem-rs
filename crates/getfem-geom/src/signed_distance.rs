@@ -17,7 +17,7 @@ pub trait SignedDistance: Send + Sync {
   fn hess(&self, p: &[f64]) -> Vec<f64>;
 }
 
-/// |f| below this: on the constraint (GetFEM SEPS)
+/// |f| below this: on the constraint
 pub const SEPS: f64 = 1e-8;
 
 /// {x : (x - x0).n >= 0}, f = (x0 - x).n, n unit (GetFEM mesher_half_space)
@@ -151,9 +151,8 @@ impl SignedDistance for RefElement {
   }
 }
 
-/// Newton projection of x onto f = 0 (or onto f <= 0 unless on_surface)
-/// (GetFEM try_projection): false after 1000 iterations or 20 without
-/// progress.
+/// Newton projection of x onto f = 0 (or onto f <= 0 unless on_surface):
+/// false after 1000 iterations or 20 without progress.
 pub fn try_projection(f: &dyn SignedDistance, x: &mut [f64], on_surface: bool) -> bool {
   let (mut d, mut g) = f.grad(x);
   if !on_surface && d <= 0.0 {
@@ -278,7 +277,7 @@ pub fn multi_projection(cs: &[&dyn SignedDistance], x: &mut [f64]) -> bool {
 }
 
 /// |grad f| / the largest |eigenvalue| of its Hessian at x, projected
-/// onto f = 0 first if proj (GetFEM curvature_radius_estimate).
+/// onto f = 0 first if proj.
 pub fn curvature_radius_estimate(f: &dyn SignedDistance, x: &[f64], proj: bool) -> f64 {
   let mut x = x.to_vec();
   if proj {

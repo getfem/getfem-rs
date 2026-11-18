@@ -187,13 +187,12 @@ impl Model {
     self.0.add_fem_variable(name, &mf.0).py()
   }
 
-  /// a variable of fixed size (GetFEM's add_variable; sizes a number or
-  /// a tensor shape)
+  /// a variable of fixed size (sizes a number or a tensor shape)
   fn add_variable(&mut self, name: &str, sizes: Sizes) -> PyResult<()> {
     self.0.add_fixed_size_variable(name, &sizes.shape()).py()
   }
 
-  /// [first, size] of an enabled variable in the system (GetFEM's)
+  /// [first, size] of an enabled variable in the system
   fn interval_of_variable<'py>(
     &self,
     py: Python<'py>,
@@ -251,7 +250,7 @@ impl Model {
   }
 
   /// a scalar, or a vector of values; with sizes (a number or a tensor
-  /// shape) a tensor, values in column-major order (GetFEM's)
+  /// shape) a tensor, values in column-major order
   #[pyo3(signature = (name, value, sizes = None))]
   fn add_initialized_data(
     &mut self,
@@ -273,21 +272,20 @@ impl Model {
   }
 
   /// fixed size data of sizes (a number or a tensor shape), zero
-  /// (GetFEM's)
   fn add_data(&mut self, name: &str, sizes: Sizes) -> PyResult<()> {
     let shape = sizes.shape();
     let n = shape.iter().product();
     self.0.add_fixed_size_data(name, &shape, &vec![0.0; n]).py()
   }
 
-  /// data on the DOFs of mf, zero (GetFEM's; without its sizes)
+  /// data on the DOFs of mf, zero (without GetFEM's sizes argument)
   fn add_fem_data(&mut self, name: &str, mf: PyRef<'_, MeshFem>) -> PyResult<()> {
     let n = mf.0.nb_dof().py()?;
     self.0.add_fem_data(name, &mf.0, &vec![0.0; n]).py()
   }
 
-  /// data on the DOFs of mf, initialized with value (GetFEM's; without
-  /// its sizes)
+  /// data on the DOFs of mf, initialized with value (without GetFEM's
+  /// sizes argument)
   fn add_initialized_fem_data(
     &mut self,
     name: &str,
@@ -297,7 +295,7 @@ impl Model {
     self.0.add_fem_data(name, &mf.0, value.as_slice()?).py()
   }
 
-  /// data at the integration points of imd, zero (GetFEM's; values by
+  /// data at the integration points of imd, zero (values by
   /// set_variable)
   fn add_im_data(&mut self, name: &str, imd: PyRef<'_, MeshImData>) -> PyResult<()> {
     let n = imd.0.nb_values().py()?;
@@ -437,7 +435,6 @@ impl Model {
   }
 
   /// an interpolate transformation from source to target, X -> expr
-  /// (GetFEM's)
   fn add_interpolate_transformation_from_expression(
     &mut self,
     name: &str,
@@ -479,22 +476,25 @@ impl Model {
   }
 
   /// B, a gf.Spmat, the tangent block of the equations of var1 w.r.t.
-  /// var2; the residual gets B var2 (GetFEM's, without its issymmetric,
-  /// iscoercive)
-  fn add_explicit_matrix(
+  /// var2 (the residual gets B var2): set, replaced, or with None removed
+  #[pyo3(signature = (var1, var2, b))]
+  fn set_explicit_matrix(
     &mut self,
     py: Python<'_>,
     var1: &str,
     var2: &str,
-    b: PyRef<'_, Spmat>,
+    b: Option<PyRef<'_, Spmat>>,
   ) -> PyResult<()> {
-    let b = b.with(py, |k| k.to_csr());
-    self.0.add_explicit_matrix(var1, var2, b).py()
+    let b = b.map(|b| b.with(py, |k| k.to_csr()));
+    self.0.set_explicit_matrix(var1, var2, b).py()
   }
 
-  /// L, the right-hand side of the equations of var (GetFEM's)
-  fn add_explicit_rhs(&mut self, var: &str, l: Values<'_>) -> PyResult<()> {
-    self.0.add_explicit_rhs(var, l.as_slice()?.to_vec()).py()
+  /// L, the right-hand side of the equations of var: set, replaced, or
+  /// with None removed
+  #[pyo3(signature = (var, l))]
+  fn set_explicit_rhs(&mut self, var: &str, l: Option<Values<'_>>) -> PyResult<()> {
+    let l = l.map(|l| l.as_slice().map(|x| x.to_vec())).transpose()?;
+    self.0.set_explicit_rhs(var, l).py()
   }
 
   fn nb_dof(&self) -> usize {
@@ -532,14 +532,14 @@ impl Model {
     self.0.set_variables(&p).py()
   }
 
-  /// GetFEM's: the enabled variables' values, in the order of the system,
-  /// without the internal ones
+  /// the enabled variables' values, in the order of the system, without
+  /// the internal ones
   #[allow(clippy::wrong_self_convention)] // GetFEM's name
   fn from_variables<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
     PyArray1::from_vec(py, self.0.from_variables())
   }
 
-  /// GetFEM's: sets the enabled variables, without the internal ones
+  /// sets the enabled variables, without the internal ones
   #[allow(clippy::wrong_self_convention)] // GetFEM's name
   fn to_variables(&mut self, u: Values<'_>) -> PyResult<()> {
     self.0.to_variables(u.as_slice()?).py()
@@ -588,7 +588,7 @@ impl Model {
     Ok(PyArray1::from_vec(py, v))
   }
 
-  /// GetFEM's model assembly, the GIL released: version "all" (the tangent
+  /// the model's assembly, the GIL released: version "all" (the tangent
   /// matrix and the rhs, kept in the model: md.tangent_matrix(),
   /// md.rhs()), "rhs" (the rhs only) or "all_condensed" (internal
   /// variables condensed out)
@@ -880,10 +880,10 @@ pub enum SelectOutput {
 /// gf.asm_generic(mim, order, expr, region[, md], select_output=None):
 /// expr assembled (with the model's variables and data if md), order 0
 /// (a scalar), 1 (a vector over the model's DOFs) or 2 (a gf.Spmat over
-/// them); an expression of lower order differentiated (GetFEM's: order 2
-/// of a residual its tangent); select_output: the rows of a variable
-/// (order 1), the block of a pair of variables, rows and columns (order
-/// 2) (GetFEM's option, as a keyword)
+/// them); an expression of lower order differentiated (order 2 of a
+/// residual: its tangent); select_output: the rows of a variable (order
+/// 1), the block of a pair of variables, rows and columns (order 2)
+/// (GetFEM's option, as a keyword)
 #[pyfunction]
 #[pyo3(signature = (mim, order, expr, region, md = None, select_output = None))]
 pub fn asm_generic<'py>(

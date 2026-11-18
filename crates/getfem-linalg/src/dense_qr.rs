@@ -7,8 +7,8 @@ use std::ops::Range;
 use crate::vect::{vect_norm2, vect_norm2_sqr};
 use crate::{Error, Result};
 
-/// gmm::house_vector: v scaled to v[0] = 1, the reflector I - 2 v v^T / v^T v
-/// mapping the input to a multiple of e1
+/// v scaled to v[0] = 1, the reflector I - 2 v v^T / v^T v mapping the
+/// input to a multiple of e1
 fn house_vector(v: &mut [f64]) {
   let (mu, a0) = (vect_norm2(v), v[0].abs());
   if mu != 0.0 {
@@ -25,8 +25,8 @@ fn house_vector(v: &mut [f64]) {
   v[0] = 1.0;
 }
 
-/// gmm::row_house_update: rows r of a (leading dimension n), columns c,
-/// multiplied to the left by the reflector of v; w: c.len() temporary
+/// Rows r of a (leading dimension n), columns c, multiplied to the left by
+/// the reflector of v; w: c.len() temporary
 fn row_house_update(
   a: &mut [f64],
   n: usize,
@@ -51,8 +51,8 @@ fn row_house_update(
   }
 }
 
-/// gmm::col_house_update: rows r, columns c of a, multiplied to the right
-/// by the reflector of v; w: r.len() temporary
+/// Rows r, columns c of a, multiplied to the right by the reflector of v;
+/// w: r.len() temporary
 fn col_house_update(
   a: &mut [f64],
   n: usize,
@@ -77,7 +77,7 @@ fn col_house_update(
   }
 }
 
-/// gmm::Hessenberg_reduction, with Q
+/// The Hessenberg form of h by reflectors, with Q
 fn hessenberg_reduction(h: &mut [f64], q: &mut [f64], n: usize, v: &mut [f64], w: &mut [f64]) {
   q[..n * n].fill(0.0);
   (0..n).for_each(|i| q[i * (n + 1)] = 1.0);
@@ -91,9 +91,8 @@ fn hessenberg_reduction(h: &mut [f64], q: &mut [f64], n: usize, v: &mut [f64], w
   }
 }
 
-/// gmm::qr_stop_criterion: negligible subdiagonal entries set to zero; q:
-/// the size of the converged trailing part, p: the start of the active
-/// block
+/// Negligible subdiagonal entries set to zero; q: the size of the
+/// converged trailing part, p: the start of the active block
 fn qr_stop_criterion(h: &mut [f64], n: usize, p: &mut usize, q: &mut usize, tol: f64) {
   if n <= 2 {
     (*q, *p) = (n, 0);
@@ -120,9 +119,9 @@ fn qr_stop_criterion(h: &mut [f64], n: usize, p: &mut usize, q: &mut usize, tol:
   }
 }
 
-/// gmm::Wilkinson_double_shift_qr_step on the active block b of h (from
-/// LAPACK); as LAPACK's Schur form (unlike gmm), the reflectors also update
-/// h right of and above the block
+/// A Wilkinson double shift QR step on the active block b of h (from
+/// LAPACK); as LAPACK's Schur form (unlike gmm), the reflectors also
+/// update h right of and above the block
 #[allow(clippy::too_many_arguments)]
 fn wilkinson_double_shift_qr_step(
   h: &mut [f64],
@@ -196,8 +195,8 @@ fn wilkinson_double_shift_qr_step(
   col_house_update(q, n, 0..n, o + nb - 2..o + nb, &v, w);
 }
 
-/// gmm::block2x2_reduction (real): the 2x2 diagonal blocks of real
-/// eigenvalues reduced to triangular, the others left
+/// The 2x2 diagonal blocks of real eigenvalues reduced to triangular, the
+/// others left (real matrices only)
 fn block2x2_reduction(h: &mut [f64], q: &mut [f64], n: usize, tol: f64, w: &mut [f64]) {
   let at = |i: usize, j: usize| i + n * j;
   let tol = 2.0 * tol;
@@ -236,7 +235,7 @@ fn block2x2_reduction(h: &mut [f64], q: &mut [f64], n: usize, tol: f64, w: &mut 
   }
 }
 
-/// gmm::schur by gmm::implicit_qr_algorithm: A = Q S Q^T, S upper
+/// The real Schur form by the implicit QR algorithm: A = Q S Q^T, S upper
 /// quasi-triangular (2x2 blocks: complex eigenvalue pairs), Q orthogonal;
 /// s: A on entry, S on exit. No allocation up to n = 8.
 pub fn schur(s: &mut [f64], q: &mut [f64], n: usize) -> Result<()> {

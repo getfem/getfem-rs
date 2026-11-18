@@ -48,12 +48,12 @@ impl Rand {
     self.next_raw()
   }
 
-  /// gmm::random(double()): uniform in [-1, 1)
+  /// Uniform in [-1, 1)
   pub fn random(&mut self) -> f64 {
     (self.rand() as f64 * 2.0) / (RAND_MAX as f64 + 0.5) - 1.0
   }
 
-  /// gmm::fill_random
+  /// v filled by random()
   pub fn fill_random(&mut self, v: &mut [f64]) {
     for x in v {
       *x = self.random();

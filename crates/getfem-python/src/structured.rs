@@ -124,7 +124,14 @@ pub fn structured(kind: &str, param: &str) -> PyResult<Mesh> {
   let p = Params::new(param, keys)?;
   let pgt = geotrans_descriptor(p.string("GT")?).py()?;
   let n = pgt.dim();
-  let org = p.array("ORG", n, &vec![0.0; n])?;
+  // structured_ball_shell: an ORG of dimension n + 1 gives the sphere
+  let surface = kind == "structured_ball_shell"
+    && matches!(p.0.get("ORG"), Some(Value::Array(a)) if a.len() == n + 1);
+  let org = if surface {
+    p.array("ORG", n + 1, &[])?
+  } else {
+    p.array("ORG", n, &vec![0.0; n])?
+  };
   let noised = p.int("NOISED")? != 0;
   match kind {
     "structured" => {
@@ -146,6 +153,12 @@ pub fn structured(kind: &str, param: &str) -> PyResult<Mesh> {
       let s = p.counts("NSUBDIV", 2, &[2, 2])?;
       let sym = p.int("SYMMETRIES")?;
       regular_ball_mesh(&pgt, &org, r, [s[0], s[1]], sym, noised).py()
+    }
+    _ if surface => {
+      let r = p.array("SIZES", 1, &[1.0])?[0];
+      let s = p.counts("NSUBDIV", 1, &[3])?;
+      let sym = p.int("SYMMETRIES")?;
+      regular_ball_shell_mesh(&pgt, &org, r, 0.0, [s[0], 1], sym, noised).py()
     }
     _ => {
       let rt = p.array("SIZES", 2, &[1.0, 0.5])?;

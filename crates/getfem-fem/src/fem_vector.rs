@@ -20,7 +20,7 @@ fn norient(n: usize) -> Vec<f64> {
     .collect()
 }
 
-/// The PK basis in GetFEM's order.
+/// The PK basis in the order of the reference nodes.
 fn pk_polys(n: usize, k: usize) -> Vec<Poly> {
   cr::simplex_of_reference_k(n, k)
     .points()
@@ -85,7 +85,7 @@ pub(crate) fn rtk(n: usize, k: usize) -> Result<PFem> {
         raw[i * n + j * (nb_pk * n + 1)] = p.clone();
       }
     }
-    // degree-k monomials times x (GetFEM's odometer order)
+    // degree-k monomials times x (odometer order)
     let mut l = 0;
     let mut pi = vec![0usize; n];
     loop {
@@ -229,10 +229,9 @@ pub(crate) fn bdmk(n: usize, k: usize) -> Result<PFem> {
       }
     }
     if k > 1 {
-      // moments of the divergence against P_{k-1}: GetFEM assembles
-      // Div(u).Test_p on the reference element and adds it in the
-      // node-major DOF order of a vector mesh_fem (not the component-major
-      // order of the raw functions); kept, the result is still a basis
+      // moments of the divergence against P_{k-1}: Div(u).Test_p on the
+      // reference element, in the node-major DOF order of a vector mesh_fem
+      // (not the component-major order of the raw functions; still a basis)
       let q = pk_polys(n, k - 1);
       let im = classical_approx_im(&geotrans_descriptor(&format!("GT_PK({n},1)"))?, 2 * k)?;
       let ai = im.approx()?;

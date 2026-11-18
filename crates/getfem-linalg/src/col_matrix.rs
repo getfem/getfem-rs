@@ -6,7 +6,7 @@ use crate::Scalar;
 
 use crate::Csr;
 
-/// gmm::rsvector: (index, value) pairs sorted by index
+/// (index, value) pairs sorted by index
 pub type RsVector<T> = Vec<(usize, T)>;
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -25,7 +25,7 @@ impl<T: Scalar> ColMatrix<T> {
     }
   }
 
-  /// gmm::resize: the entries of the kept rows and columns kept
+  /// The new size; the entries of the kept rows and columns kept
   pub fn resize(&mut self, nrows: usize, ncols: usize) {
     self.cols.resize_with(ncols, Vec::new);
     if nrows < self.nrows {
@@ -34,8 +34,7 @@ impl<T: Scalar> ColMatrix<T> {
     (self.nrows, self.ncols) = (nrows, ncols);
   }
 
-  /// gmm::clear: no entries, the storage of the columns kept for the next
-  /// assembly
+  /// No entries, the storage of the columns kept for the next assembly
   pub fn clear(&mut self) {
     self.cols.iter_mut().for_each(Vec::clear);
   }
@@ -59,12 +58,12 @@ impl<T: Scalar> ColMatrix<T> {
     }
   }
 
-  /// GetFEM's add_elem_matrix: elem (column-major, rows dofs1, columns
-  /// dofs2) added column by column, the rows sorted once (insertion sort)
-  /// and merged into each column; entries with abs value <= threshold are
-  /// dropped, and None DOFs (not in a partial space) skipped. n: the
-  /// dimension, for the reserve of a new column as GetFEM. rows: work, the
-  /// sorted (row, position in elem) pairs.
+  /// elem (column-major, rows dofs1, columns dofs2) added column by
+  /// column, the rows sorted once (insertion sort) and merged into each
+  /// column; entries with abs value <= threshold are dropped, and None DOFs
+  /// (not in a partial space) skipped. n: the dimension, for the reserve
+  /// of a new column as GetFEM. rows: work, the sorted (row, position in
+  /// elem) pairs.
   pub fn add_elem_matrix(
     &mut self,
     dofs1: &[Option<usize>],
@@ -122,7 +121,7 @@ impl<T: Scalar> ColMatrix<T> {
     add_to_rsvector(&mut self.cols[j], entries);
   }
 
-  /// self += b (gmm::add of sparse matrices), column by column merges
+  /// self += b, column by column merges
   pub fn add(&mut self, b: &ColMatrix<T>) {
     for (j, bc) in b.cols.iter().enumerate() {
       if !bc.is_empty() {

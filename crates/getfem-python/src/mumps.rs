@@ -138,8 +138,8 @@ impl MumpsContext {
   }
 }
 
-/// gf.linsolve_mumps(M, b[, "sym"]): the solution of M x = b (GetFEM's),
-/// b a vector or a matrix of right hand sides (columns); "sym": M
+/// gf.linsolve_mumps(M, b[, "sym"]): the solution of M x = b, b a vector
+/// or a matrix of right hand sides (columns); "sym": M
 /// symmetric (MUMPS' SYM 2). After gf.mpi_init on several ranks: M each
 /// rank's part (as assembled, summed by MUMPS; as GetFEM), b whole, x on
 /// all ranks

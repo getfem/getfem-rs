@@ -15,7 +15,7 @@ impl Rng {
   }
 }
 
-/// Random matrix with unit rows and |det| >= 0.7 (as GetFEM's random_base).
+/// Random matrix with unit rows and |det| >= 0.7.
 fn random_base(n: usize, r: &mut Rng) -> Mat {
   loop {
     let mut m = Mat::zeros(&[n, n]);

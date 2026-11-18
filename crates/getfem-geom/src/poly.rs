@@ -1,4 +1,4 @@
-//! Multivariate polynomials and rational fractions (port of bgeot_poly).
+//! Multivariate polynomials and rational fractions (GetFEM's bgeot_poly).
 //!
 //! Monomial order as in GetFEM: by total degree, then graded as documented
 //! in `bgeot_poly.h`, so coefficient vectors are interchangeable.
@@ -10,7 +10,7 @@ use crate::{Error, Result};
 use getfem_linalg::{Real, Scalar};
 
 /// Number of monomials of n variables with degree <= d: (n+d)!/(n!d!)
-/// (tabulated for small n, d, as GetFEM's alpha_M_).
+/// (tabulated for small n, d).
 pub fn alpha(n: usize, d: usize) -> usize {
   if n < ALPHA_N && d < ALPHA_D {
     return ALPHA[n][d];

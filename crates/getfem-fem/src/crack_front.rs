@@ -387,8 +387,8 @@ pub fn front_element_dofs(
 
 /// The basic DOFs of mf whose node is within radius of the front of the
 /// crack level set ls: primary^2 + secondary^2 < radius^2, the level set's
-/// interpolant at the node (GetFEM's fixed zone, crack.cc); the distance
-/// to the front where both are distances near it.
+/// interpolant at the node; the distance to the front where both are
+/// distances near it.
 pub fn select_mesh_fem_basic_dofs_near_front(
   ls: &LevelSet,
   mf: &MeshFem,

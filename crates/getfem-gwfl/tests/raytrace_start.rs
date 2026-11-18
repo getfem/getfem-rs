@@ -1,10 +1,10 @@
-//! Ray tracing onto a curved Q2 face whose first node is far from the hit
-//! (a bug report on GetFEM c5433d32, mwe_raytrace): one 27-node master
-//! hexahedron, one slave, zero displacements (the nodes are deformed
-//! positions of a twisted bar). GetFEM's Newton starts at the face's first
-//! node, converges to a root of the extrapolated face outside it, and
-//! loses a penetrating pair; renumbering the master element (same
-//! geometry) finds it. The pairs must not depend on the numbering.
+//! Ray tracing onto a curved Q2 face whose first node is far from the hit (a
+//! bug report on GetFEM, mwe_raytrace): one 27-node master hexahedron, one
+//! slave, zero displacements (the nodes are deformed positions of a twisted
+//! bar). GetFEM's Newton starts at the face's first node, converges to a root
+//! of the extrapolated face outside it, and loses a penetrating pair;
+//! renumbering the master element (same geometry) finds it. The pairs must not
+//! depend on the numbering.
 
 use getfem_fem::im_data::ImData;
 use getfem_fem::integration::integ_descriptor;

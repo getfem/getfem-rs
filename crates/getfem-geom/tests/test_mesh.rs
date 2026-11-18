@@ -218,8 +218,8 @@ fn test_mesh_matching() {
   }
 }
 
-/// intersection with the entire domain is the other region (GetFEM
-/// mesh_region::intersection); union and difference with it are errors
+/// intersection with the entire domain is the other region; union and
+/// difference with it are errors
 #[test]
 fn intersection_with_the_entire_domain() {
   use getfem_geom::regular_mesh::regular_unit_mesh;
@@ -236,9 +236,9 @@ fn intersection_with_the_entire_domain() {
   assert!(e.contains("all_convexes"), "{e}");
 }
 
-/// a sheared prism box keeps all the components of its vectors (GetFEM
-/// parallelepiped_regular_prism_mesh_: the auxiliary simplices in
-/// dimension N)
+/// a sheared prism box keeps all the components of its vectors (the
+/// auxiliary simplices of parallelepiped_regular_prism_mesh in dimension
+/// N)
 #[test]
 fn sheared_prism_mesh() {
   use getfem_geom::regular_mesh::parallelepiped_regular_prism_mesh;

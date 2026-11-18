@@ -159,7 +159,7 @@ impl MeshFem {
   }
 
   /// the reduction matrix R (a gf.Spmat; None if not reduced; an error if
-  /// not stored, see set_reduction_matrices "auto") (GetFEM's)
+  /// not stored, see set_reduction_matrices "auto")
   fn reduction_matrix(&self) -> PyResult<Option<Spmat>> {
     Ok(
       self
@@ -170,7 +170,7 @@ impl MeshFem {
     )
   }
 
-  /// the extension matrix E (a gf.Spmat; None if not reduced) (GetFEM's)
+  /// the extension matrix E (a gf.Spmat; None if not reduced)
   fn extension_matrix(&self) -> PyResult<Option<Spmat>> {
     Ok(
       self
@@ -181,8 +181,8 @@ impl MeshFem {
     )
   }
 
-  /// V on the basic DOFs from V on the DOFs, E V (GetFEM's; V itself if
-  /// not reduced)
+  /// V on the basic DOFs from V on the DOFs, E V (V itself if not
+  /// reduced)
   fn extend_vector<'py>(
     &self,
     py: Python<'py>,
@@ -191,8 +191,8 @@ impl MeshFem {
     Ok(PyArray1::from_vec(py, self.0.extend_vector(&v).py()?))
   }
 
-  /// V on the DOFs from V on the basic DOFs, R V (GetFEM's; least
-  /// squares when R is not stored)
+  /// V on the DOFs from V on the basic DOFs, R V (least squares when R is
+  /// not stored)
   fn reduce_vector<'py>(
     &self,
     py: Python<'py>,
@@ -216,7 +216,7 @@ impl MeshFem {
   }
 
   /// discontinuous Lagrange of degree k, its nodes shrunk towards the
-  /// element's centre by alpha (GetFEM's default 0)
+  /// element's centre by alpha (default 0)
   #[pyo3(signature = (k, alpha = 0.0))]
   fn set_classical_discontinuous_finite_element(&self, k: usize, alpha: f64) -> PyResult<()> {
     self
@@ -229,7 +229,7 @@ impl MeshFem {
     self.0.nb_dof().py()
   }
 
-  /// the DOFs before reduction (GetFEM's)
+  /// the DOFs before reduction
   fn nb_basic_dof(&self) -> PyResult<usize> {
     self.0.nb_basic_dof().py()
   }

@@ -44,7 +44,7 @@ pub(crate) fn from_csr(a: &Csr<f64>) -> ColMatrix<f64> {
   k
 }
 
-/// K(I, J): the rows I, the columns J (gmm::sub_matrix)
+/// K(I, J): the rows I, the columns J
 pub(crate) fn sub_matrix(
   k: &ColMatrix<f64>,
   ii: &[usize],
@@ -82,7 +82,7 @@ pub(crate) fn sub_matrix(
   Ok(s)
 }
 
-/// A B (gmm::mult of sparse matrices), exact zeros dropped
+/// A B, exact zeros dropped
 pub(crate) fn mult(a: &ColMatrix<f64>, b: &ColMatrix<f64>) -> PyResult<ColMatrix<f64>> {
   if a.ncols != b.nrows {
     return Err(PyValueError::new_err(format!(
@@ -115,7 +115,7 @@ pub(crate) fn mult(a: &ColMatrix<f64>, b: &ColMatrix<f64>) -> PyResult<ColMatrix
   Ok(c)
 }
 
-/// A + B (gmm::add), exact zeros dropped
+/// A + B, exact zeros dropped
 pub(crate) fn add(a: &ColMatrix<f64>, b: &ColMatrix<f64>) -> PyResult<ColMatrix<f64>> {
   if (a.nrows, a.ncols) != (b.nrows, b.ncols) {
     return Err(PyValueError::new_err(format!(
@@ -136,7 +136,7 @@ pub(crate) fn add(a: &ColMatrix<f64>, b: &ColMatrix<f64>) -> PyResult<ColMatrix<
   Ok(c)
 }
 
-/// A' (gmm::transposed)
+/// A'
 pub(crate) fn transposed(a: &ColMatrix<f64>) -> ColMatrix<f64> {
   let mut t = ColMatrix::new(a.ncols, a.nrows);
   for (j, c) in a.cols.iter().enumerate() {
@@ -247,7 +247,6 @@ impl Spmat {
   }
 
   /// (JC, IR): the column pointers and row indices of the CSC storage
-  /// (GetFEM's csc_ind)
   fn csc_ind<'py>(
     &self,
     py: Python<'py>,
@@ -264,14 +263,14 @@ impl Spmat {
     (PyArray1::from_vec(py, jc), PyArray1::from_vec(py, ir))
   }
 
-  /// the values of the CSC storage, in the order of csc_ind (GetFEM's)
+  /// the values of the CSC storage, in the order of csc_ind
   fn csc_val<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
     let v = self.with(py, |k| k.cols.iter().flatten().map(|e| e.1).collect());
     PyArray1::from_vec(py, v)
   }
 
-  /// the diagonal (GetFEM's); with E, a column per diagonal of rank d
-  /// in E (entries (i, i+d) at row i, d < 0 below the diagonal)
+  /// the diagonal; with E, a column per diagonal of rank d in E (entries
+  /// (i, i+d) at row i, d < 0 below the diagonal)
   #[pyo3(signature = (e = None))]
   fn diag<'py>(&self, py: Python<'py>, e: Option<Vec<i64>>) -> PyResult<Bound<'py, PyAny>> {
     let ranks = e.clone().unwrap_or(vec![0]);

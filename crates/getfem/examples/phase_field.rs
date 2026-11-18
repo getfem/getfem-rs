@@ -37,8 +37,7 @@ fn linspace(a: f64, b: f64, n: usize) -> Vec<f64> {
 }
 
 /// the demo's graded, notched mesh of [-1/2, 1/2]^2; NX, NY rounded up to
-/// even (y = 0, the notch, a grid line), as the demo does (since GetFEM
-/// 9fb90f9)
+/// even (y = 0, the notch, a grid line), as the demo does
 fn mesh(nx: usize, ny: usize) -> Mesh {
   let (lx, ly) = (1.0, 1.0);
   let even = |n: usize| n.div_ceil(2) * 2;

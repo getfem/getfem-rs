@@ -12,7 +12,7 @@ use crate::fem::{DofDesc, Fem, FemCtx, PFem, RealValues, real_base_values_at, re
 use crate::mesh_fem::MeshFem;
 use crate::{Error, Result};
 
-/// The element of a convex with DOFs of pu_dofs (GetFEM fem_product).
+/// The element of a convex with DOFs of pu_dofs.
 #[derive(Debug)]
 struct FemProduct {
   name: String,

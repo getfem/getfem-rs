@@ -1,7 +1,8 @@
-//! Port of the GWFL part of GetFEM's tests/test_assembly.cc (test_new_assembly).
+//! The GWFL part of GetFEM's tests/test_assembly.cc (test_new_assembly).
 //! References to GetFEM's old assembly are replaced by exact values or by
 //! identities between GWFL forms; checks on derivatives of potentials
-//! (MAT_TEST_2 of order-0 expressions) and on partial spaces come with M7/M8.
+//! (MAT_TEST_2 of order-0 expressions) and on partial spaces come with
+//! M7/M8.
 
 use std::f64::consts::PI;
 

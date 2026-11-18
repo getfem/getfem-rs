@@ -14,12 +14,12 @@ struct D<'a> {
   var: String,
   /// the transformation through which var is read ("" for var itself)
   trans: String,
-  /// var through any transformation (GetFEM any_trans: Diff)
+  /// var through any transformation (for Diff)
   any_trans: bool,
   order: usize,
   dir: Option<usize>,
   marked: Vec<bool>,
-  /// spatial gradient instead of a variation (GetFEM ga_node_grad)
+  /// spatial gradient instead of a variation
   meshdim: Option<usize>,
 }
 
@@ -70,8 +70,8 @@ pub(crate) fn derive_trans(
   Ok(Some(d.t))
 }
 
-/// Spatial gradient of `tree` (GetFEM ga_node_grad): a trailing index of
-/// size meshdim; None if the tree does not depend on the position.
+/// Spatial gradient of `tree`: a trailing index of size meshdim; None if
+/// the tree does not depend on the position.
 pub fn grad(tree: &Tree, defs: &Defs, meshdim: usize) -> Result<Option<Tree>> {
   let Some(r) = tree.root else { return Ok(None) };
   let mut d = D {
@@ -96,7 +96,7 @@ pub fn grad(tree: &Tree, defs: &Defs, meshdim: usize) -> Result<Option<Tree>> {
 
 /// Variables (not data) whose values an analysed tree reads, with the
 /// transformation they are read through ("" for directly), including the
-/// variables the transformations depend on (GetFEM ga_extract_variables).
+/// variables the transformations depend on.
 pub fn variables(tree: &Tree, defs: &Defs) -> Vec<(String, String)> {
   let mut out: Vec<(String, String)> = vec![];
   let Some(r) = tree.root else { return out };
@@ -487,7 +487,7 @@ impl D<'_> {
     }
   }
 
-  /// gradient of a bilinear operation (GetFEM ga_node_grad)
+  /// gradient of a bilinear operation
   fn g_product(&mut self, i: usize, tok: Tok) -> Result<usize> {
     let n = self.t.n[i].clone();
     let pos = n.pos;
@@ -941,8 +941,7 @@ impl D<'_> {
     }
   }
 
-  /// (a, b) if the function f of one argument is a t + b (GetFEM
-  /// ga_predef_function::is_affine)
+  /// (a, b) if the function f of one argument is a t + b
   fn affine(&self, f: &str) -> Option<(f64, f64)> {
     let u = crate::defs::function(f)?;
     if u.nargs != 1 || u.native.is_some() {
@@ -1254,7 +1253,7 @@ impl D<'_> {
         Ok(k)
       }
       Ty::Params => self.params(i, &n, &ch),
-      // the filter of the derivative (GetFEM)
+      // the filter of the derivative
       Ty::InterpolateFilter => self.with_child_derived(i, 0),
       _ => Err(self.unsupported(i, &format!("{:?}", n.ty))),
     }

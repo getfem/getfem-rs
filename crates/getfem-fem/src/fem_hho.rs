@@ -1,7 +1,7 @@
-//! HHO elements (GetFEM hho_method, getfem_fem_composite.cc): an element
-//! for the interior and one per face. At a point of a face only the
-//! functions of that face are nonzero ("faces first"), elsewhere only the
-//! interior ones. DOFs: the interior ones first, then each face in order.
+//! HHO elements (port of GetFEM's hho_method): an element for the interior and
+//! one per face. At a point of a face only the functions of that face are
+//! nonzero ("faces first"), elsewhere only the interior ones. DOFs: the
+//! interior ones first, then each face in order.
 
 use crate::error::{Error, Result};
 use crate::fem::{DofDesc, Fem, PFem};
@@ -35,8 +35,7 @@ fn gerr(e: getfem_geom::Error) -> Error {
   Error::InvalidArgument(e.to_string())
 }
 
-/// the linear geometric transformation of a face structure (GetFEM
-/// default_trans_of_cvs)
+/// the linear geometric transformation of a face structure
 fn face_trans(cr: &PRef, f: usize) -> Result<PGeoTrans> {
   let n = cr.dim() - 1;
   let np = cr.structure().nb_points_of_face(f);

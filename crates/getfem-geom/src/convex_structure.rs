@@ -1,4 +1,4 @@
-//! Convex structures: topology of reference elements (port of
+//! Convex structures: topology of reference elements (GetFEM's
 //! bgeot_convex_structure). Face and point numbering identical to GetFEM.
 
 use std::sync::Arc;

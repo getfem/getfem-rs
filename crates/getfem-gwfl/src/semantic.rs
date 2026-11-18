@@ -1,4 +1,4 @@
-//! GWFL semantic analysis: port of GetFEM's ga_node_analysis. Resolves names
+//! GWFL semantic analysis (GetFEM's ga_node_analysis): resolves names
 //! against a Defs store, computes shapes and test-function order, folds
 //! constants. Operates on a mutable arena tree like GetFEM so that the
 //! simplifications (and thus the results) are the same.
@@ -53,6 +53,7 @@ pub enum Ty {
   EltSize,
   EltK,
   EltB,
+  EltCurvature,
   Normal,
   InterpX,
   InterpEltK,
@@ -518,7 +519,7 @@ impl Tree {
     }
   }
 
-  /// GetFEM replace_node_by_child: node i is replaced by its child k
+  /// Node i replaced by its child k
   fn replace_by_child(&mut self, i: usize, k: usize) -> usize {
     let c = self.n[i].children[k];
     let p = self.n[i].parent;
@@ -804,6 +805,7 @@ impl An<'_> {
       | Ty::EltSize
       | Ty::EltK
       | Ty::EltB
+      | Ty::EltCurvature
       | Ty::Normal
       | Ty::Reshape
       | Ty::CrossProduct
@@ -948,7 +950,12 @@ impl An<'_> {
         }
         "element_B" => {
           n.ty = Ty::InterpEltB;
-          n.init_matrix(red, meshdim);
+          // N x P as K (B = K (K^T K)^-1), a vector when P = 1
+          if red == 1 {
+            n.init_vector(meshdim)
+          } else {
+            n.init_matrix(meshdim, red)
+          }
           return Ok(());
         }
         _ => {}
@@ -1818,7 +1825,17 @@ impl An<'_> {
       }
       "element_B" => {
         n.ty = Ty::EltB;
-        n.init_matrix(red, meshdim);
+        // N x P as K, a vector when P = 1
+        if red == 1 {
+          n.init_vector(meshdim)
+        } else {
+          n.init_matrix(meshdim, red)
+        }
+        return Ok(());
+      }
+      "element_curvature" => {
+        n.ty = Ty::EltCurvature;
+        n.init_matrix(meshdim, meshdim);
         return Ok(());
       }
       "Normal" => {
@@ -2473,7 +2490,7 @@ impl An<'_> {
     Ok(i)
   }
 
-  /// Diff(expr, u) and Diff(expr, u, direction) (GetFEM ga_node_analysis)
+  /// Diff(expr, u) and Diff(expr, u, direction)
   fn diff(&mut self, i: usize, ch: &[usize]) -> Result<usize> {
     let c0 = ch[0];
     if ch.len() != 3 && ch.len() != 4 {
@@ -2505,7 +2522,7 @@ impl An<'_> {
     let dir = ch.get(3).copied();
     let mut sub = self.t.clone();
     sub.root = Some(e);
-    // var through any transformation (GetFEM: any_trans)
+    // var through any transformation (any_trans)
     let r = match crate::derive::derive_trans(&sub, self.defs, &var, "", true, order + 1, dir)? {
       Some(d) => {
         // the derivative lives in a superset of the arena

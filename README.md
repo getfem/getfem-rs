@@ -1,4 +1,4 @@
-# GetFEM-rs 0.9
+# GetFEM-rs 0.9.1
 
 A port of [GetFEM](https://getfem.org), the finite element library, to Rust.
 It keeps GetFEM's strengths (the weak form language GWFL, a broad element
@@ -25,7 +25,7 @@ and goes beyond the original in speed and correctness:
 The tests check results against exact solutions and invariances. The
 tests against GetFEM's own results (reference data of GetFEM c5433d32) are
 the crate `getfem-tests`: in the repository, and in a separate archive
-`getfem-rs-tests-0.9.0.tar.gz` that unpacks into this tree. Where GetFEM
+`getfem-rs-tests-0.9.1.tar.gz` that unpacks into this tree. Where GetFEM
 has a defect, GetFEM-rs does not reproduce it.
 
 ## Contents
@@ -35,14 +35,14 @@ has a defect, GetFEM-rs does not reproduce it.
 | `getfem` | facade re-exporting the crates below; examples and acceptance tests |
 | `getfem-geom` | reference convexes, polynomials, geometric transformations, meshes, regions, structured meshes, GetFEM `.mesh` files |
 | `getfem-fem` | finite elements, cubature, `MeshFem`, `MeshIm`, `ImData`, interpolation, mesh slices |
-| `getfem-gwfl` | the weak form language: parser, analysis, derivation, GetFEM's compiled instructions, `Workspace`, interpolate and elementary transformations; stress intensity factors of cracks |
+| `getfem-gwfl` | the weak form language: parser, analysis, derivation, compiled instructions, `Workspace`, interpolate and elementary transformations; stress intensity factors of cracks |
 | `getfem-model` | `Model` (terms, Dirichlet conditions, multipliers), `Newton` |
-| `getfem-linalg` | sparse matrices (gmm's column matrix of sorted sparse vectors, CSR, COO), the `LinearSolver` trait, the real Schur form (gmm's QR algorithm), the preconditioned conjugate gradient (gmm's `cg`) |
+| `getfem-linalg` | sparse matrices (columns of sorted sparse vectors, CSR, COO), the `LinearSolver` trait, the real Schur form (implicit QR algorithm), the conjugate gradient with a diagonal preconditioner |
 | `getfem-mumps` | MUMPS as a `LinearSolver`, sequential or with MPI (feature `mpi`), and its FFI |
 | `getfem-arpack` | ARPACK-ng's symmetric eigensolver in shift-invert mode, `eigsh` (MUMPS factorizes the shifted matrix) |
 | `getfem-xsmm` | small matrix products by libxsmm kernels (no BLAS) |
 | `getfem-mpi` | MPI (feature `mpi`): rank, sums and broadcasts of data replicated on every rank; one rank without it |
-| `getfem-io` | gmsh import; Exodus II import and export (meshes, regions, nodal fields at time steps, own netCDF reader and writer); VTU export as GetFEM's `vtk_export` (a mesh, a space or a slice; fields on any space; ASCII, binary, compressed), PVD collections |
+| `getfem-io` | gmsh import; Exodus II import and export (meshes, regions, nodal fields at time steps, own netCDF reader and writer); VTU export (a mesh, a space or a slice; fields on any space; ASCII, binary, compressed), PVD collections |
 | `getfem-python` | the Python module `getfem_rs` (PyO3): GetFEM's classes, methods and string constructors for what GetFEM-rs has; its examples and tests |
 | `getfem-tests` | tests against GetFEM: its reference data, the programs that generated it, Rust and Python tests (a separate archive) |
 
@@ -167,6 +167,7 @@ In `crates/getfem/examples`, run with `cargo run --release -p getfem --example <
 | `bouncing_ball` | an elastic disc dropped on a rigid ground (GetFEM's `demo_dynamic_contact.m` in 2D): Newmark written out, penalty contact |
 | `ball_on_block` | the disc dropped on an elastic block: two bodies by Newmark, contact by raytracing along the deformed normal, penalty |
 | `two_rings` | two rubber rings of second order hexahedra (extruded and bent), a GetFEM user's script: one pulled through the other by handles held with multipliers until they hold like chain links, contact by raytracing along the deformed normal |
+| `shell_solid_contact` | a hemispherical shell (Quad9, a 7-parameter shell with `Normal` and `element_curvature`) pressed onto a hemispherical shell of solid Hexa27 elements: raytracing contact from the shell, an augmented Lagrangian as a weak form; the shell's dome inverts |
 | `viscoelastic_ball` | the bouncing disc in a large strain quasilinear viscoelastic material (GetFEM's `QLV_viscoelasticity.py`): each bounce lower |
 | `topology_optimization` | a cantilever's compliance minimized at half volume, large strains, the density on uniform B-splines, solved in pseudo-time (a user's GetFEM script) |
 | `phase_field` | phase field fracture of a notched plate (GetFEM's `demo_phase_field.py`), every load step reached: pseudo-viscous steps on phi where Newton fails; tension, or shear (argument `shear`) |
@@ -183,7 +184,9 @@ In `crates/getfem/examples`, run with `cargo run --release -p getfem --example <
 | `inclined_penny_crack` | a penny crack tilted to a uniaxial tension: K_I, K_II and K_III along the front against the exact ones (VTU) |
 
 Results are written to `target/showcase`. Each example is also in Python,
-in `crates/getfem-python/examples`.
+in `crates/getfem-python/examples`, with one more: `fictitious_domains`
+(GetFEM's `demo_fictitious_domains.py`, elasticity outside holes and a
+segment given by level sets).
 
 ## Performance
 

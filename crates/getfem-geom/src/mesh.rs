@@ -1,5 +1,6 @@
 //! MeshData: dense points, convexes with their geometric transformation,
-//! point-to-convex adjacency, regions (port of getfem_mesh / bgeot_mesh_structure).
+//! point-to-convex adjacency, regions (GetFEM's getfem_mesh,
+//! bgeot_mesh_structure).
 //!
 //! A mesh is mutable while owned; once shared (Arc) it is frozen. Every
 //! mutation gets a new version stamp.
@@ -338,10 +339,9 @@ impl MeshData {
     (0..self.cvs.len()).filter(|&i| self.cvs[i].is_some())
   }
 
-  /// This rank's convexes (GetFEM mesh::get_mpi_region): with more than
-  /// one rank the METIS parts of the graph of face neighbours, one per
-  /// rank, computed once per geometry (GetFEM mesh::compute_mpi_region);
-  /// all convexes on one rank.
+  /// This rank's convexes: with more than one rank the METIS parts of the
+  /// graph of face neighbours, one per rank, computed once per geometry
+  /// (GetFEM mesh::compute_mpi_region); all convexes on one rank.
   pub fn mpi_region(&self) -> Arc<RegionSet> {
     let n = getfem_mpi::size();
     if n < 2 {
@@ -860,7 +860,7 @@ impl MeshData {
     self.regions.keys().copied()
   }
 
-  /// One more than the largest region id (GetFEM free_region_id).
+  /// One more than the largest region id.
   pub fn free_region_id(&self) -> usize {
     self.regions.keys().last().map_or(0, |&i| i + 1)
   }
@@ -879,7 +879,7 @@ impl MeshData {
     }
   }
 
-  /// The entire domain (GetFEM mesh_region::all_convexes()).
+  /// The entire domain.
   pub fn all_convexes(&self) -> Region {
     Region::all_convexes()
   }
@@ -1069,8 +1069,8 @@ impl Mesh {
 }
 
 /// Prismatic mesh: m extruded along a new last coordinate over [0, 1], in
-/// nb_layers layers of degree `degree` (getfem::extrude). Convexes are
-/// products of m's with GT_PK(1, degree), nodes layer by layer.
+/// nb_layers layers of degree `degree`. Convexes are products of m's
+/// with GT_PK(1, degree), nodes layer by layer.
 pub fn extrude(m: &Mesh, nb_layers: usize, degree: usize) -> Result<Mesh> {
   let nt = nb_layers * degree;
   if nt == 0 {

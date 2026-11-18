@@ -1,5 +1,4 @@
-//! gmm col_matrix<rsvector> and GetFEM's add_elem_matrix against a dense
-//! reference.
+//! ColMatrix and its add_elem_matrix against a dense reference.
 
 use getfem_linalg::ColMatrix;
 

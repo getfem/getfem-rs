@@ -90,7 +90,7 @@ fn inv(m: &Mat) -> Result<Mat> {
 }
 
 /// inverse of a mass matrix; for scalar elements (s copies) the block of
-/// one component inverted and replicated, as GetFEM
+/// one component inverted and replicated
 fn mass_inverse(m: &Mat, s: usize) -> Result<Mat> {
   let n = m.nrows();
   if s <= 1 {
@@ -115,7 +115,7 @@ fn mass_inverse(m: &Mat, s: usize) -> Result<Mat> {
   Ok(out)
 }
 
-/// zero the entries below tol (gmm::clean)
+/// zero the entries below tol
 fn clean(m: &mut Mat, tol: f64) {
   m.data_mut().iter_mut().for_each(|v| {
     if v.abs() < tol {

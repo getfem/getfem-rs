@@ -1,6 +1,6 @@
-//! Reduction and extension matrices of a space (GetFEM
-//! set_reduction_matrices, reduce_to_basic_dof, extend_vector,
-//! reduce_vector; partial spaces of a reduced space).
+//! Reduction and extension matrices of a space (set_reduction_matrices,
+//! reduce_to_basic_dof, extend_vector, reduce_vector; partial spaces of a
+//! reduced space).
 
 use std::collections::BTreeSet;
 

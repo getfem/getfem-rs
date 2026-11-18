@@ -1,4 +1,4 @@
-//! Integration methods (port of getfem_integration): exact polynomial
+//! Integration methods (GetFEM's getfem_integration): exact polynomial
 //! integration and cubature rules with points on the element and on each
 //! face. Point order identical to GetFEM (matters for ImData).
 
@@ -158,7 +158,7 @@ impl ApproxIntegration {
     self.rep[0]
   }
 
-  /// Number of faces of the reference convex (GetFEM nb_convex_faces).
+  /// Number of faces of the reference convex.
   pub fn nb_convex_faces(&self) -> usize {
     self.rep.len() - 1
   }
@@ -425,9 +425,9 @@ pub fn point_set(
 }
 
 /// A cubature given by its points and weights on a reference convex:
-/// `interior`, then the points of each face (GetFEM's approx_integration
-/// built with add_point; no merging). Transient methods are not tabulated
-/// by the precomputations; others are cached by name.
+/// `interior`, then the points of each face (close points not merged).
+/// Transient methods are not tabulated by the precomputations; others are
+/// cached by name.
 pub fn approx_integration(
   name: String,
   cvr: &PRef,
@@ -624,7 +624,7 @@ fn resolve(d: &Descriptor) -> Result<PIntegration> {
     }
     "QUASI_POLAR" => {
       use getfem_geom::naming::Param;
-      // the vertex numbers (GetFEM: floor(x + 0.01))
+      // the vertex numbers: floor(x + 0.01)
       let ip = |x: &f64| (x + 0.01).floor().max(0.0) as usize;
       let (m, ip1, ip2) = match &d.params[..] {
         [Param::Method(m)] => (m, 0, 0),
@@ -662,7 +662,7 @@ fn resolve(d: &Descriptor) -> Result<PIntegration> {
       let name = format!("IM_STRUCTURED_COMPOSITE({},{k})", base.name);
       named(name, || {
         let a = base.approx()?;
-        let sub = crate::fem_composite::structured_sub_mesh(a.ref_convex(), k)?;
+        let sub = crate::fem_composite::structured_mesh_precomposite(a.ref_convex(), k)?;
         composite(&sub, a, a.ref_convex().clone()).map(ImKind::Approx)
       })
     }
@@ -689,7 +689,7 @@ fn resolve(d: &Descriptor) -> Result<PIntegration> {
 /// The method a on each sub-element, faces on the faces of cvr (GetFEM
 /// composite_approx_int_method).
 fn composite(
-  sub: &crate::fem_composite::SubMesh,
+  sub: &crate::fem_composite::MeshPrecomposite,
   a: &ApproxIntegration,
   cvr: PRef,
 ) -> Result<ApproxIntegration> {
@@ -808,7 +808,7 @@ fn legendre(n: usize, x: f64) -> (f64, f64) {
 
 /// Gauss-Legendre with n points on [0, 1]; face points 1 (face 0), 0 (face 1).
 fn gauss1d(n: usize) -> ApproxIntegration {
-  // roots by bisection between consecutive roots of P_{n-1}, as GetFEM
+  // roots by bisection between consecutive roots of P_{n-1}
   let mut roots: Vec<f64> = vec![0.0];
   for m in 2..=n {
     let mut r = vec![0.0; m];
@@ -839,7 +839,7 @@ fn gauss1d(n: usize) -> ApproxIntegration {
   let mut w = vec![];
   let nf = n as f64;
   for &x0 in roots.iter().take(n) {
-    // Newton polish (GetFEM works in long double) and w = 1/((1-x^2) P_n'^2)
+    // Newton polish and w = 1/((1-x^2) P_n'^2)
     let mut x = x0;
     for _ in 0..3 {
       let (p, pm1) = legendre(n, x);
@@ -923,7 +923,7 @@ fn group(m: &ApproxIntegration, f: Option<usize>) -> (Vec<Vec<f64>>, Vec<f64>) {
   (m.pts[a..b].to_vec(), m.w[a..b].to_vec())
 }
 
-/// Tensor product of rules, first factor fastest (GetFEM order).
+/// Tensor product of rules, first factor fastest.
 fn tensor(
   out: &mut (Vec<Vec<f64>>, Vec<f64>),
   a: &(Vec<Vec<f64>>, Vec<f64>),
@@ -961,7 +961,7 @@ fn product(a: &ApproxIntegration, b: &ApproxIntegration) -> ApproxIntegration {
 }
 
 /// IM_PYRAMID(base on the cube): the cube mapped onto the pyramid by the
-/// degenerate Q1 map with the top face collapsed to the apex (GetFEM's
+/// degenerate Q1 map with the top face collapsed to the apex (the
 /// quasi-polar construction, pyramid case).
 fn pyramid(base: &ApproxIntegration) -> Result<ApproxIntegration> {
   if *base.structure() != *getfem_geom::convex_structure::parallelepiped_structure(3, 1) {
@@ -1025,13 +1025,13 @@ fn pyramid(base: &ApproxIntegration) -> Result<ApproxIntegration> {
   Ok(b.finish())
 }
 
-/// IM_QUASI_POLAR(base, ip1[, ip2]) (GetFEM quasi_polar_integration): a
-/// rule on the reference simplex singular at its vertex ip1 (2D: base on
-/// the square; 3D: on the prism, singular along the edge ip1-ip2 or at
-/// the vertex ip1 = ip2, or on the tetrahedron, at ip1); a base on the
-/// cube gives the pyramid rule. The base is mapped by a degenerate Q1
-/// transformation onto a reference simplex, then onto the simplex with
-/// ip1 (and ip2) at the collapsed nodes.
+/// IM_QUASI_POLAR(base, ip1[, ip2]): a rule on the reference simplex
+/// singular at its vertex ip1 (2D: base on the square; 3D: on the prism,
+/// singular along the edge ip1-ip2 or at the vertex ip1 = ip2, or on the
+/// tetrahedron, at ip1); a base on the cube gives the pyramid rule. The
+/// base is mapped by a degenerate Q1 transformation onto a reference
+/// simplex, then onto the simplex with ip1 (and ip2) at the collapsed
+/// nodes.
 fn quasi_polar(base: &ApproxIntegration, ip1: usize, ip2: usize) -> Result<ApproxIntegration> {
   use getfem_geom::convex_structure as cs;
   #[derive(PartialEq)]
@@ -1244,10 +1244,9 @@ pub fn classical_exact_im(pgt: &PGeoTrans) -> Result<PIntegration> {
   }
 }
 
-/// A cubature exact at least up to `degree` for the elements of pgt (GetFEM's
-/// classical_approx_im).
+/// A cubature exact at least up to `degree` for the elements of pgt.
 pub fn classical_approx_im(pgt: &PGeoTrans, degree: usize) -> Result<PIntegration> {
-  // the methods found (GetFEM keeps the last one; a list for mixed meshes):
+  // the methods found (a list for mixed meshes):
   // the search builds and parses names
   thread_local! {
     static FOUND: std::cell::RefCell<Vec<(PGeoTrans, usize, PIntegration)>> = Default::default();

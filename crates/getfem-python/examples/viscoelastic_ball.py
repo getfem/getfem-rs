@@ -71,7 +71,7 @@ for k, v in [
   md.add_macro(k, v)
 md.add_nonlinear_term(mim, "acc.Test_u"
                            " + (E'*(F*(SeH+SvH+SeD+SvD))*E):Grad_Test_u - load.Test_u")
-md.add_nonlinear_term(mimc, "r*sqr(neg_part(X(2) + u(2)))", CONTACT)
+md.add_nonlinear_term(mimc, "r*sqr_neg_part(X(2) + u(2))", CONTACT)
 
 mfy = gf.MeshFem(m); mfy.set_classical_finite_element(2)  # y of the nodes
 area = gf.asm_generic(mim, 0, "1", -1, md)

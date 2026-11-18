@@ -234,7 +234,7 @@ Constructors:
 | `gf.Mesh("regular_simplices", X[, Y[, Z]])` | grid split into simplices (`GT_PK(d,1)`), coordinates mapped from X, Y, Z (non-uniform allowed); no "degree", no "noised" options |
 | `gf.Mesh("structured", param)` | GetFEM's structured mesh, `param` a string `"GT='GT_QK(2,1)';ORG=[0,0];SIZES=[1,1];NSUBDIV=[4,4];NOISED=0"` (keys GT required, others optional; defaults ORG 0, SIZES 1, NSUBDIV 2; `;` or newline separated). Any GT: `GT_PK(2,1)`, `GT_QK(2,2)`, `GT_PK(3,2)`, ... |
 | `gf.Mesh("structured_ball", param)` | disc/ball: keys GT, ORG, SIZES=[r], NSUBDIV=[n_core, n_peel], NOISED, SYMMETRIES (0: whole ball; k: the part kept by k symmetry planes, d: one sector) |
-| `gf.Mesh("structured_ball_shell", param)` | shell: SIZES=[r, thickness] (default [1, 0.5]), NSUBDIV default [3, 2], SYMMETRIES |
+| `gf.Mesh("structured_ball_shell", param)` | shell: SIZES=[r, thickness] (default [1, 0.5]), NSUBDIV default [3, 2], SYMMETRIES. ORG one dimension longer than GT: the sphere surface itself (a circle with GT_PK(1,k) and ORG=[x,y], a sphere with GT_QK(2,k) and ORG=[x,y,z]), SIZES=[r], NSUBDIV=[n] (GetFEM: none) |
 | `gf.Mesh("import", "gmsh", filename)` | Gmsh ASCII `.msh` 2.x or 4.1; physical tags become region ids. The mesh is 3D (the format's coordinates; GetFEM drops z = 0): a planar mesh is made 2D by `m.transform([[1,0,0],[0,1,0]])` (an info message says so). Nodes are not merged (a crack with duplicated nodes stays open; `m.merge_points()` glues); unused nodes skipped. No access to group names |
 | `gf.Mesh("import", "exodus", filename)` | Exodus II, netCDF 64-bit offset format only (other netCDF formats: `nccopy -k '64-bit offset' in.exo out.exo`). The file's dimension (a planar 3D file: `transform`, as gmsh); nodes not merged. Regions: side set k -> face region k, element set k -> convex region k (the same k: one region, a warning), element block k -> convex region 100000 + k (a warning); set ids from 0 to 99999. Node sets ignored (an info message). Element types BAR2/3, TRI3/6, QUAD4/8/9, TETRA4/10, HEX8/20/27, WEDGE6/15/18, PYRAMID5/13/14 (2D elements in a 3D file: shells, sides 1, 2 their faces, edges from side 3) |
 | `gf.Mesh("load", filename)` | a GetFEM mesh file |
@@ -384,8 +384,8 @@ Terms and helpers:
 |---|---|
 | `add_linear_term(mim, expr, region=-1)` | a GWFL term that must be linear in the variables (ValueError otherwise); cached while the data do not change |
 | `add_nonlinear_term(mim, expr, region=-1)` | any GWFL term, reassembled every iteration |
-| `add_explicit_matrix(var1, var2, B)` | `B` (`gf.Spmat`, size of var1 x var2) added to the tangent block of var1's equations w.r.t. var2 (residual += B var2); GetFEM's `issymmetric`, `iscoercive` not taken |
-| `add_explicit_rhs(var, L)` | `L` added to the right-hand side of var's equations |
+| `set_explicit_matrix(var1, var2, B)` | `B` (`gf.Spmat`, size of var1 x var2), the explicit tangent block of var1's equations w.r.t. var2 (residual += B var2): set, or replaced if there is one; `None` removes it (not assembled at all). One per (var1, var2). GetFEM: `add_explicit_matrix` (summed, without `issymmetric`, `iscoercive` here), `set_private_matrix` |
+| `set_explicit_rhs(var, L)` | `L`, the explicit right-hand side of var's equations, e.g. a point load per load step: set, or replaced if there is one; `None` removes it (not assembled at all). One per variable. GetFEM: `add_explicit_rhs` (summed), `set_private_rhs` |
 | `add_macro(name, expr)` | `name` or `name(a,b)` with parameters |
 | `add_Dirichlet_condition_with_multiplier(mim, var, mf_mult, region, data=None)` | var = data on region (data: any GWFL expression of var's shape, e.g. a data name, `"[1;0]"`, `"X"`; None: 0). mf_mult a `MeshFem` or an int degree (Lagrange of var's qdim, its DOFs on region). Returns the multiplier name (`"mult_on_u"`, then `"mult_on_u_1"`, ...). Dependent constraints are a ValueError (see `select_multiplier_dofs_for_variable`) |
 | `add_Dirichlet_condition_with_penalization(mim, var, coef, region, data=None)` | term coef (var - data).Test_var on region; data as above |
@@ -393,8 +393,8 @@ Terms and helpers:
 | `select_multiplier_dofs_for_variable(var, mim, mf_mult, region, constraint="value")` | int array of basic DOFs of mf_mult giving independent constraints (`"value"` or `"normal_derivative"`); use with `gf.MeshFem("partial", mf_mult, dofs)` |
 | `add_interpolate_transformation_from_expression(name, source_mesh, target_mesh, expr)` | `Interpolate(.., name)` maps X to expr (GWFL, may use variables) |
 | `add_raytracing_transformation(name, release_distance)` | contact transformation |
-| `add_master_contact_boundary_to_raytracing_transformation(name, m, disp, region)` | target boundary, displaced by variable disp |
-| `add_slave_contact_boundary_to_raytracing_transformation(name, m, disp, region)` | boundary rays start from |
+| `add_master_contact_boundary_to_raytracing_transformation(name, m, disp, region)` | target boundary, displaced by variable disp: faces, or the elements of a curve in 2D or a surface in 3D (a shell midsurface, two-sided: its normal turned towards the ray; `Interpolate(Normal, name)` the element's own normal) |
+| `add_slave_contact_boundary_to_raytracing_transformation(name, m, disp, region)` | boundary rays start from, along the deformed normal: faces, or shell elements (rays along the deformed element normal, oriented as `Normal`: one side only); a shell's offset surface (thickness) goes into the gap expression |
 
 Assembly, solve, post-processing:
 
@@ -794,10 +794,11 @@ in this simplification and can be derived any number of times.
 | Name | Shape | Meaning |
 |---|---|---|
 | `X` | (d) | current point (real element); `X(1)`, `X(2)`, `X(3)` |
-| `Normal` | (d) | outward unit normal on a face region; on a level-set boundary, along the level set gradient; zero vector inside volumes (no error) |
+| `Normal` | (d) | outward unit normal on a face region; on a level-set boundary, along the level set gradient; inside a curve in 2D or a surface in 3D, the element's unit normal (K_1 x K_2 in 3D, (K_21, -K_11) in 2D: element_curvature = grad_s Normal); inside other elements an error |
 | `element_size` | () | element diameter estimate |
 | `element_K` | (d, P) (vector (d) when P = 1) | gradient of the geometric transformation, P reference dimension |
-| `element_B` | (P, d) | transposed pseudo-inverse of element_K |
+| `element_B` | (d, P) (vector (d) when P = 1) | transposed pseudo-inverse of element_K, B = K (K^T K)^-1 |
+| `element_curvature` | (d, d) | curves in 2D, surfaces in 3D only: grad_s n = -B b B^T, b_ab = n . d2x/dxi_a dxi_b (second fundamental form), n oriented by the element's parametrization; principal curvatures as eigenvalues, mean curvature `Trace(element_curvature)/2`; zero on linear elements, discontinuous across elements, its sign per element orientation; `Grad` of it is zero (as element_K, element_B) |
 | `pi` | () | |
 | `meshdim` | () | d (usable as a constant: `Id(meshdim)`) |
 | `Id(n)` | (n, n) | identity, n a constant expression |

@@ -311,7 +311,7 @@ impl MacroDict {
     self.macros.contains_key(name)
   }
 
-  /// Add "name(a,b)" := "expr", as GetFEM's add_macro.
+  /// Add "name(a,b)" := "expr".
   pub fn add(&mut self, name: &str, expr: &str) -> Result<()> {
     let src = format!("Def {name}:={expr}");
     let mut p = Parser::new(&src, self);
@@ -430,7 +430,7 @@ impl<'a> Parser<'a> {
     }
   }
 
-  /// Read a term; returns the token that ended it (GetFEM ga_read_term).
+  /// Read a term; returns the token that ended it.
   fn read_term(&mut self, t: &mut Tree) -> Result<Tok> {
     let mut state = 1;
     loop {
@@ -788,7 +788,7 @@ impl<'a> Parser<'a> {
     copy_between(&m.arena, body, &mut self.a)
   }
 
-  /// GetFEM ga_expand_macro; returns the (possibly new) node index.
+  /// Expand the macros in subtree i; returns the (possibly new) node index.
   fn expand(&mut self, i: usize) -> Result<usize> {
     match self.a.n[i].kind.clone() {
       Kind::Params => {

@@ -12,9 +12,8 @@ use crate::fem::FemCtx;
 use crate::level_set::{ConvexLevelSet, LevelSet};
 use crate::{Error, Result};
 
-/// Where a global function is evaluated (GetFEM's
-/// fem_interpolation_context): the real point x and, on an element, the
-/// convex and the element context (functions of level sets use them).
+/// Where a global function is evaluated: the real point x and, on an element,
+/// the convex and the element context (functions of level sets use them).
 #[derive(Clone, Copy, Debug)]
 pub struct EvalPoint<'a> {
   pub x: &'a [f64],
@@ -53,22 +52,22 @@ pub trait GlobalFunctionImpl: Send + Sync {
   fn val(&self, p: &EvalPoint) -> f64;
   fn grad(&self, p: &EvalPoint) -> Vec<f64>;
   fn hess(&self, p: &EvalPoint) -> Vec<f64>;
-  /// changes when what it depends on besides the point changes (GetFEM
-  /// context_dependencies; 0: nothing): values computed before are invalid
+  /// changes when what it depends on besides the point changes (0:
+  /// nothing): values computed before are invalid
   fn version(&self) -> u64 {
     0
   }
-  /// whether x is in the support (GetFEM: true when unknown)
+  /// whether x is in the support (true when unknown)
   fn is_in_support(&self, _x: &[f64]) -> bool {
     true
   }
-  /// a box containing the support (GetFEM: +-1e25 when unknown)
+  /// a box containing the support (+-1e25 when unknown)
   fn bounding_box(&self) -> (Vec<f64>, Vec<f64>) {
     (vec![-1e25; self.dim()], vec![1e25; self.dim()])
   }
 }
 
-/// A global function (GetFEM's pglobal_function).
+/// A global function.
 #[derive(Clone)]
 pub struct GlobalFunction(Arc<dyn GlobalFunctionImpl>);
 
@@ -106,11 +105,11 @@ impl GlobalFunction {
     self.0.bounding_box()
   }
 
-  /// The uniform B-spline of the given order (3 to 5) and types (1 to
-  /// order) per direction (GetFEM global_function_bspline): along each
-  /// axis, the knot interval [min, max] split into `type` unit intervals;
-  /// type = order is the interior B-spline, smaller types are the
-  /// functions at a boundary (at min; max < min mirrors them).
+  /// The uniform B-spline of the given order (3 to 5) and types (1 to order)
+  /// per direction (GetFEM global_function_bspline): along each axis, the knot
+  /// interval [min, max] split into `type` unit intervals; type = order is the
+  /// interior B-spline, smaller types are the functions at a boundary (at min;
+  /// max < min mirrors them).
   pub fn bspline(min: &[f64], max: &[f64], order: usize, types: &[usize]) -> Result<Self> {
     let n = min.len();
     if !(1..=3).contains(&n) || max.len() != n || types.len() != n {
@@ -139,8 +138,7 @@ impl GlobalFunction {
     Ok(GlobalFunction(Arc::new(BSpline { axes })))
   }
 
-  /// The sum of functions of the same dimension (GetFEM
-  /// global_function_sum).
+  /// The sum of functions of the same dimension.
   pub fn sum(funcs: &[GlobalFunction]) -> Result<Self> {
     let dim = funcs.first().map_or(0, |f| f.dim());
     if funcs.iter().any(|f| f.dim() != dim) {
@@ -151,7 +149,7 @@ impl GlobalFunction {
     Ok(GlobalFunction(Arc::new(Sum(funcs.to_vec(), dim))))
   }
 
-  /// The product of two functions (GetFEM global_function_product).
+  /// The product of two functions.
   pub fn product(f1: &GlobalFunction, f2: &GlobalFunction) -> Result<Self> {
     if f1.dim() != f2.dim() {
       return Err(Error::InvalidArgument(
@@ -161,8 +159,7 @@ impl GlobalFunction {
     Ok(GlobalFunction(Arc::new(Product(f1.clone(), f2.clone()))))
   }
 
-  /// f with the bounding box [min, max] (GetFEM global_function_bounded
-  /// without an expression; its values are those of f).
+  /// f with the bounding box [min, max] (its values are those of f).
   pub fn bounded(f: &GlobalFunction, min: &[f64], max: &[f64]) -> Result<Self> {
     if min.len() != f.dim() || max.len() != f.dim() {
       return Err(Error::InvalidArgument("Wrong dimensions".into()));
@@ -216,8 +213,7 @@ struct Axis {
   f: Bsp,
 }
 
-/// The tensor product of 1D B-splines (GetFEM's global_function_x_bspline_,
-/// _xy_, _xyz_).
+/// The tensor product of 1D B-splines.
 struct BSpline {
   axes: Vec<Axis>,
 }
@@ -423,7 +419,7 @@ impl GlobalFunctionImpl for Bounded {
   }
 }
 
-// --------------------------------------- GetFEM's 1D B-spline polynomials
+// ------------------------------------------------ 1D B-spline polynomials
 
 const EPS: f64 = 1e-12;
 
@@ -873,11 +869,11 @@ struct XyCache {
 /// A value with its real gradient and Hessian (empty if not computed).
 type RealFn = (f64, Vec<f64>, Vec<f64>);
 
-/// A crack tip function of (x, y) = (secondary, primary) values of a level
-/// set on each convex (GetFEM global_function_on_levelsets_2D_): with
-/// several level sets, the one whose (x, y) is the closest to 0 at the
-/// reference origin of the convex. In the mesh dimension (GetFEM: 2): in
-/// 3D, (x, y) span the plane normal to the crack front.
+/// A crack tip function of (x, y) = (secondary, primary) values of a level set
+/// on each convex (GetFEM global_function_on_levelsets_2D_): with several level
+/// sets, the one whose (x, y) is the closest to 0 at the reference origin of
+/// the convex. In the mesh dimension (GetFEM: 2): in 3D, (x, y) span the plane
+/// normal to the crack front.
 struct OnLevelSets {
   lss: Vec<LevelSet>,
   f: CrackTipFunction,
@@ -1053,13 +1049,13 @@ impl GlobalFunctionImpl for OnLevelSets {
 
 impl GlobalFunction {
   /// The crack tip function f of (x, y) = (secondary, primary) values of
-  /// the level set ls (GetFEM global_function_on_level_set).
+  /// the level set ls.
   pub fn on_level_set(ls: &LevelSet, f: &CrackTipFunction) -> Result<Self> {
     Self::on_level_sets(std::slice::from_ref(ls), f)
   }
 
   /// The same with several level sets: on each convex, the one whose
-  /// crack tip is the closest (GetFEM global_function_on_level_sets).
+  /// crack tip is the closest.
   pub fn on_level_sets(lss: &[LevelSet], f: &CrackTipFunction) -> Result<Self> {
     let Some(l0) = lss.first() else {
       return Err(Error::InvalidArgument(

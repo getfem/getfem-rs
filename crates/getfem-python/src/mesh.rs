@@ -173,7 +173,7 @@ impl Mesh {
 
   /// the faces on the boundary of the convexes CVIDs (all if none) of
   /// dimension dim (all if none; GetFEM: the mesh's), not shared by two
-  /// of them: convexes (row 0), faces (row 1) (GetFEM's)
+  /// of them: convexes (row 0), faces (row 1)
   #[pyo3(signature = (dim = None, cvids = None))]
   fn outer_faces<'py>(
     &self,
@@ -185,7 +185,7 @@ impl Mesh {
     faces(py, &self.0, &outer_faces(&self.0, r).py()?)
   }
 
-  /// VTU file of the mesh (GetFEM's); binary unless ascii
+  /// VTU file of the mesh; binary unless ascii
   #[pyo3(signature = (filename, ascii = false))]
   fn export_to_vtu(&self, filename: &str, ascii: bool) -> PyResult<()> {
     let format = if ascii { Format::Ascii } else { Format::Binary };
@@ -200,7 +200,7 @@ impl Mesh {
   }
 
   /// the faces shared by two convexes of CVIDs (all if none), each once:
-  /// convexes (row 0), faces (row 1) (GetFEM's)
+  /// convexes (row 0), faces (row 1)
   #[pyo3(signature = (cvids = None))]
   fn inner_faces<'py>(
     &self,
@@ -314,18 +314,18 @@ impl Mesh {
     self.0.set_region_set(id, r).py()
   }
 
-  /// region r1 := r1 minus r2 (GetFEM's; a missing region empty)
+  /// region r1 := r1 minus r2 (a missing region empty)
   fn region_subtract(&self, r1: usize, r2: usize) -> PyResult<()> {
     self.region_op(r1, r2, RegionSet::subtract)
   }
 
-  /// region r1 := r1 and r2 merged (GetFEM's)
+  /// region r1 := r1 and r2 merged
   fn region_merge(&self, r1: usize, r2: usize) -> PyResult<()> {
     self.region_op(r1, r2, RegionSet::merge)
   }
 
-  /// region r1 := r1 intersected with r2 (GetFEM's; a whole convex with
-  /// its faces keeps the faces)
+  /// region r1 := r1 intersected with r2 (a whole convex with its faces
+  /// keeps the faces)
   fn region_intersect(&self, r1: usize, r2: usize) -> PyResult<()> {
     self.region_op(r1, r2, RegionSet::intersect)
   }
@@ -417,8 +417,8 @@ fn faces<'py>(py: Python<'py>, m: &RsMesh, r: &Region) -> PyResult<Bound<'py, Py
   PyArray1::from_vec(py, [cvs, fs].concat()).reshape([2, n])
 }
 
-/// GetFEM's regular_simplices_mesh: the unit simplex grid, each
-/// coordinate mapped piecewise linearly onto xs
+/// The unit simplex grid, each coordinate mapped piecewise linearly onto
+/// xs
 fn regular_simplices(xs: &[Vec<f64>]) -> PyResult<RsMesh> {
   if xs.is_empty() || xs.iter().any(|x| x.len() < 2) {
     return Err(PyValueError::new_err(
@@ -450,8 +450,8 @@ fn regular_simplices(xs: &[Vec<f64>]) -> PyResult<RsMesh> {
   Ok(m)
 }
 
-/// GetFEM's cartesian mesh: the points in Fortran order, GT_LINEAR_QK
-/// (linear) or GT_QK(d,1) ("cartesian Q1")
+/// The cartesian mesh: the points in Fortran order, GT_LINEAR_QK (linear)
+/// or GT_QK(d,1) ("cartesian Q1")
 fn cartesian(xs: &[Vec<f64>], linear: bool) -> PyResult<RsMesh> {
   let d = xs.len();
   if d == 0 || xs.iter().any(|x| x.len() < 2) {

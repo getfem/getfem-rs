@@ -44,7 +44,8 @@ pub enum Tok {
 }
 
 impl Tok {
-  /// GetFEM's ga_operator_priorities.
+  /// The binding priority of an operator (higher binds tighter; 0: not an
+  /// operator).
   pub fn priority(self) -> u8 {
     match self {
       Tok::Plus | Tok::Minus => 1,

@@ -47,9 +47,9 @@ fn model() -> (Model, Vec<f64>) {
     k.push(i, (i + 3) % n, 0.1);
     k.push((i + 3) % n, i, 0.1);
   }
-  md.add_explicit_matrix("u", "u", k.to_csr().unwrap())
+  md.set_explicit_matrix("u", "u", Some(k.to_csr().unwrap()))
     .unwrap();
-  md.add_explicit_rhs("u", (0..n).map(|i| 0.01 * (i % 5) as f64).collect())
+  md.set_explicit_rhs("u", Some((0..n).map(|i| 0.01 * (i % 5) as f64).collect()))
     .unwrap();
   let x0 = md.from_variables();
   (md, x0)

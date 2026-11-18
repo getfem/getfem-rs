@@ -1,7 +1,7 @@
 //! Transformed (non tau-equivalent) scalar elements of GetFEM
 //! (getfem_fem.cc): Hermite, Argyris, Morley. Each has polynomial basis
 //! functions on the reference element and an element matrix M_T mapping
-//! them to the real element (GetFEM mat_trans), computed once per element.
+//! them to the real element, computed once per element.
 
 use getfem_geom::convex_ref as cr;
 use getfem_geom::geotrans::PGeoTrans;
@@ -26,7 +26,7 @@ pub(crate) enum TransKind {
   Nedelec,
 }
 
-/// Basis functions from GetFEM's ';'-separated polynomial strings.
+/// Basis functions from ';'-separated polynomial strings.
 pub(crate) fn polys(n: usize, s: &str) -> Result<Vec<crate::fem::Shape>> {
   s.split(';')
     .map(str::trim)
@@ -117,7 +117,7 @@ pub(crate) fn hermite(d: usize) -> Result<PFem> {
       )
     }
     3 => {
-      // GetFEM: 5 groups of 4; groups 0..3 at the vertices (value, then the
+      // 5 groups of 4; groups 0..3 at the vertices (value, then the
       // three derivatives), group 4 at the face centers
       let (mut nodesref, mut dofs) = (vec![], vec![]);
       for k in 0..5 {

@@ -1,6 +1,6 @@
-//! Number of threads of the assembly (GetFEM getfem_omp: set_num_threads),
-//! one setting for the whole program, 1 by default; 1 for good with MPI on
-//! several ranks (single-threaded ranks: more is an error)
+//! Number of threads of the assembly, one setting for the whole program,
+//! 1 by default; 1 for good with MPI on several ranks (single-threaded
+//! ranks: more is an error)
 
 use std::sync::Once;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};

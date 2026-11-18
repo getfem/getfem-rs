@@ -36,8 +36,8 @@ impl ImdPoints {
 
   /// Index of point i of convex cv, i in the numbering of its method
   /// (interior points, then the points of each face); None if the point is
-  /// not in the region. Only the points of the region are numbered (GetFEM's
-  /// filtered numbering; no second, unfiltered one: another ImData on the
+  /// not in the region. Only the points of the region are numbered (no
+  /// second, unfiltered numbering as in GetFEM: another ImData on the
   /// entire domain gives that).
   pub fn index_of_point(&self, cv: usize, i: usize) -> Option<usize> {
     if let Some(&(a, _, k)) = self
@@ -80,7 +80,7 @@ impl Clone for Inner {
   }
 }
 
-/// Data at integration points (GetFEM im_data), as a shared handle.
+/// Data at integration points, as a shared handle.
 #[derive(Clone, Debug)]
 pub struct ImData(Shared<Inner>);
 
@@ -129,8 +129,8 @@ impl ImData {
       Some(r) => Some(r.resolve(ims.linked_mesh())?),
       None => None,
     };
-    // GetFEM im_data::update_from_context: the interior points of the
-    // convexes of the region first, then the points of its faces
+    // the interior points of the convexes of the region first, then the points
+    // of its faces
     let nbcv = ims.linked_mesh().nb_convexes_max();
     let (mut first, mut faces) = (vec![usize::MAX; nbcv], vec![vec![]; nbcv]);
     let mut nb = 0;

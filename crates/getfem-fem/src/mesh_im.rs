@@ -13,8 +13,7 @@ use crate::level_set::LevelSet;
 use crate::mesh_fem::new_stamp;
 use crate::{Error, Result};
 
-/// The methods of every convex for one version of the mesh (GetFEM
-/// mesh_im::ims).
+/// The methods of every convex for one version of the mesh.
 #[derive(Debug)]
 pub struct Ims {
   mesh: Arc<MeshData>,
@@ -31,8 +30,8 @@ impl Ims {
     &self.mesh
   }
 
-  /// The level sets whose normal Normal is (GetFEM: a mesh_im_level_set
-  /// integrating on the boundary); empty for other methods.
+  /// The level sets whose normal Normal is (a MeshImLevelSet integrating
+  /// on the boundary); empty for other methods.
   pub fn normal_level_sets(&self) -> &[LevelSet] {
     &self.normal_level_sets
   }
@@ -89,7 +88,7 @@ impl Clone for Inner {
   }
 }
 
-/// Integration methods on a mesh (GetFEM mesh_im), as a shared handle.
+/// Integration methods on a mesh, as a shared handle.
 #[derive(Clone, Debug)]
 pub struct MeshIm(Shared<Inner>);
 
@@ -132,8 +131,7 @@ impl MeshIm {
     })
   }
 
-  /// GetFEM's set_integration_method, its four forms by the argument: a
-  /// method (`&pim`) or a degree (`5`, the classical method exact for
+  /// A method (`&pim`) or a degree (`5`, the classical method exact for
   /// polynomials of that degree), everywhere (also on convexes added
   /// later) or on given convexes (`(cvs, &pim)`, `(cvs, 5)`).
   pub fn set_integration_method(&self, arg: impl IntegrationMethodArg) -> Result<()> {
@@ -258,7 +256,7 @@ fn check_fit(m: &MeshData, cv: usize, pim: &PIntegration) -> Result<()> {
   Ok(())
 }
 
-/// The forms of MeshIm::set_integration_method (GetFEM's overloads).
+/// The forms of MeshIm::set_integration_method.
 pub trait IntegrationMethodArg {
   fn apply(self, mim: &MeshIm) -> Result<()>;
 }

@@ -72,8 +72,8 @@ fn add_dyad(r: &mut [f64], s: f64, x: &[f64], y: &[f64]) {
   }
 }
 
-/// GetFEM's compute_invariants of a matrix C: i1, i2, i3, j1, j2, their
-/// gradients and symmetrized second gradients
+/// The invariants of a matrix C: i1, i2, i3, j1, j2, their gradients and
+/// symmetrized second gradients
 struct Invariants {
   c: Vec<f64>,
   n: usize,

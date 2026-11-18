@@ -1,6 +1,6 @@
-//! The condensed tangent (GetFEM ga_workspace::assembly(2, true)) against
-//! the dense Schur complement of the retained system: K^ = K_pp - K_pq
-//! K_qq^-1 K_qp, K' = K_qq^-1 K_qp, R' = K_qq^-1 R_q, rhs = -K_pq R'.
+//! The condensed tangent (assembly(2, true)) against the dense Schur
+//! complement of the retained system: K^ = K_pp - K_pq K_qq^-1 K_qp, K' =
+//! K_qq^-1 K_qp, R' = K_qq^-1 R_q, rhs = -K_pq R'.
 
 mod common;
 
@@ -224,8 +224,9 @@ fn schur_complement_cluster_of_two() {
 
 #[test]
 fn schur_complement_on_mixed_meshes() {
-  // triangles and quadrilaterals, of degree 1 and 2 (GetFEM's condensation
-  // failed on mixed meshes until 6be1a567, after the reference build)
+  // triangles and quadrilaterals, of degree 1 and 2 (against the Schur
+  // complement only: GetFEM's condensation failed on mixed meshes in the
+  // reference build)
   for mi in [0, 1] {
     let m = common::mixed::mixed_mesh(mi, true);
     for (two, reduced) in [(false, false), (true, false), (false, true)] {

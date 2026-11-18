@@ -138,7 +138,7 @@ fn cases(n: usize) -> Vec<Case> {
       -1,
     ));
   }
-  // Ogden (GetFEM snippet gf_ogden_3D): the two forms of the stress term,
+  // Ogden: the two forms of the stress term,
   // residual and tangent (macros in setup)
   for kind in [Vector, Matrix] {
     v.push(c(
@@ -379,7 +379,7 @@ fn setup(sub: &[usize], curved: bool) -> Setup {
   }
 }
 
-/// one assembly, the result as GetFEM gives it (a column matrix for matrices)
+/// one assembly (a column matrix for matrices)
 #[inline(never)]
 fn measured(s: &mut Setup, c: &Case) -> f64 {
   body(s, c)
@@ -414,7 +414,7 @@ fn body(s: &mut Setup, c: &Case) -> f64 {
   match c.kind {
     Kind::Scalar => s.ws.assembled_potential(),
     Kind::Vector => s.ws.assembled_vector()[0],
-    // the assembled column matrix, as GetFEM's (no conversion)
+    // the assembled column matrix (no conversion)
     _ => s.ws.assembled_matrix().nrows as f64,
   }
 }

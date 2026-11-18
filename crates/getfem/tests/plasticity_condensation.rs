@@ -135,7 +135,7 @@ fn run(plane: bool, internal: bool, loads: &[f64]) -> Steps {
       "plane {plane}, internal {internal}, d {d}: {}",
       rep.message
     );
-    // from_variables: without the internal variables (GetFEM's default)
+    // from_variables: without the internal variables (the default)
     let nint = if internal {
       np * (1 + plane as usize)
     } else {

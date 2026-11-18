@@ -1,4 +1,4 @@
-//! Regions (port of mesh_region, simplified). A `Region` is an identifier:
+//! Regions (GetFEM's mesh_region, simplified). A `Region` is an identifier:
 //! the entire domain, a region stored in a mesh (by id), or a temporary set
 //! of convexes and faces (e.g. an intersection, for one operation). Its
 //! content is looked up in the mesh when it is used, so stored regions
@@ -260,7 +260,7 @@ enum Kind {
 pub struct Region(Kind);
 
 impl Region {
-  /// The entire domain (GetFEM mesh_region::all_convexes()).
+  /// The entire domain.
   pub fn all_convexes() -> Region {
     Region(Kind::All)
   }
@@ -342,7 +342,7 @@ impl Region {
   fn own(&self) -> Result<(Arc<RegionSet>, u64)> {
     match &self.0 {
       Kind::All => Err(Error::InvalidArgument(
-        "the entire domain (-1) in a union or difference (as GetFEM): use the region of all its convexes, mesh.snapshot().all_convexes()".into(),
+        "the entire domain (-1) in a union or difference: use the region of all its convexes, mesh.snapshot().all_convexes()".into(),
       )),
       Kind::Stored { mesh, .. } => {
         let m = mesh.snapshot();
@@ -376,12 +376,11 @@ impl Region {
   }
 
   /// Intersection (a whole convex with its faces keeps the faces), as a
-  /// temporary region; with the entire domain the other region (GetFEM
-  /// mesh_region::intersection).
+  /// temporary region; with the entire domain the other region.
   pub fn intersect(&self, o: &Region) -> Result<Region> {
     match (&self.0, &o.0) {
       (Kind::All, Kind::All) => Err(Error::InvalidArgument(
-        "intersection of the entire domain with itself (as GetFEM)".into(),
+        "intersection of the entire domain with itself".into(),
       )),
       (Kind::All, _) => Ok(o.clone()),
       (_, Kind::All) => Ok(self.clone()),
@@ -442,7 +441,7 @@ pub fn outer_faces_of_mesh(m: &impl AsMeshData) -> Region {
   outer_faces(m, ALL).expect("the entire domain is a region of convexes")
 }
 
-/// Faces shared by two convexes of r, each once (port of inner_faces_of_mesh).
+/// Faces shared by two convexes of r, each once.
 pub fn inner_faces(m: &impl AsMeshData, r: impl Into<RegionArg>) -> Result<Region> {
   let m = &*m.view();
   let r = &*r.into().content(m)?;
